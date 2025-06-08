@@ -8,6 +8,7 @@ import sys
 import pytest
 
 import meanfieldincrements
+import numpy as np
 
 
 def test_meanfieldincrements_imported():
