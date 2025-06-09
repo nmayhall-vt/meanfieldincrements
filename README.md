@@ -1,8 +1,8 @@
 MeanFieldIncrements
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/meanfieldincrements/workflows/CI/badge.svg)](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/meanfieldincrements/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/MeanFieldIncrements/branch/main/graph/badge.svg)](https://codecov.io/gh/REPLACE_WITH_OWNER_ACCOUNT/MeanFieldIncrements/branch/main)
+[![GitHub Actions Build Status](https://github.com/nmayhall-vt/meanfieldincrements/workflows/CI/badge.svg)](https://github.com/nmayhall-vt/meanfieldincrements/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/nmayhall-vt/MeanFieldIncrements/branch/main/graph/badge.svg)](https://codecov.io/gh/nmayhall-vt/MeanFieldIncrements/branch/main)
 
 
 MFI
