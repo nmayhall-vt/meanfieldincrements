@@ -24,6 +24,8 @@ class Site:
         """
         self.label = int(label)
         self.dimension = int(dimension)
+        if self.dimension <= 0:
+            raise ValueError("Dimension must be a positive integer.")
 
     def __repr__(self):
         return f"Site(label={self.label}, dimension={self.dimension})"

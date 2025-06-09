@@ -196,6 +196,71 @@ class TestLocalOperator:
         # Unfold and verify we get back the original
         op.unfold()
         np.testing.assert_array_equal(op.tensor, matrix)
+    def test_trace_performance(self):
+        """Test trace performance and correctness."""
+        import time
+        from meanfieldincrements import Site
+        
+        print("Testing optimized trace function...")
+        
+        # Test 1: Single site operators
+        print("\n1. Single site operators:")
+        site = Site(0, 2)
+        
+        # Pauli matrices
+        pauli_matrices = {
+            'I': np.array([[1, 0], [0, 1]]),
+            'X': np.array([[0, 1], [1, 0]]),
+            'Y': np.array([[0, -1j], [1j, 0]]),
+            'Z': np.array([[1, 0], [0, -1]])
+        }
+        
+        for name, matrix in pauli_matrices.items():
+            op = LocalOperator(matrix, [site])
+            matrix_trace = op.trace()
+            op.fold()
+            tensor_trace = op.trace()
+            print(f"   Pauli-{name}: matrix={matrix_trace:.3f}, tensor={tensor_trace:.3f}")
+            assert np.isclose(matrix_trace, tensor_trace)
+
+        # Test 2: Multi-site operators
+        print("\n2. Multi-site operators:")
+        
+        for n_sites in [2, 3, 4]:
+            sites = [Site(i, i+2) for i in range(n_sites)]
+            # dim = 2**n_sites
+            dim = np.prod([site.dimension for site in sites])
+            
+            # Random operator
+            random_matrix = np.random.random((dim, dim)) + 1j * np.random.random((dim, dim))
+            op = LocalOperator(random_matrix, sites)
+            
+            # Time matrix trace
+            start = time.time()
+            matrix_trace = op.trace()
+            matrix_time = time.time() - start
+            
+            # Time tensor trace  
+            op.fold()
+            start = time.time()
+            tensor_trace = op.trace()
+            tensor_time = time.time() - start
+            
+            error = abs(matrix_trace - tensor_trace) / abs(matrix_trace)
+            print(f"   {n_sites} sites: error={error:.2e}, "
+                f"matrix_time={matrix_time:.6f}s, tensor_time={tensor_time:.6f}s")
+        
+        # Test 3: Identity operators (should give total dimension)
+        print("\n3. Identity operators:")
+        for n_sites in [1, 2, 3, 4]:
+            sites = [Site(i, i+2) for i in range(n_sites)]
+            dim = 2**n_sites
+            identity = np.eye(dim)
+            op = LocalOperator(identity, sites)
+            
+            trace_val = op.trace()
+            expected = dim
+            print(f"   {n_sites} sites: trace={trace_val}, expected={expected}")
 
 def run_tests():
     """Simple test runner if pytest is not available."""
@@ -212,19 +277,9 @@ def run_tests():
             print(f"✗ {method_name} failed: {e}")
 
 
+
+
 if __name__ == "__main__":
     # # Run tests with pytest
-    # # pytest.main([__file__, "-v"])
-    # mytest = TestLocalOperator()
-    # mytest.test_single_site_fold_unfold()
-    # mytest.test_two_site_equal_dimensions()
-    # mytest.test_two_site_different_dimensions()
-    # mytest.test_three_site_operator()
-    # mytest.test_round_trip_matrix_to_tensor()
-    # mytest.test_round_trip_tensor_to_matrix()
-    # mytest.test_method_chaining()
-    # mytest.test_identity_operators()
-    # mytest.test_pauli_operators()
-    # mytest.test_large_dimensions()
-    # mytest.test_value_preservation_detailed()
     run_tests()
+    # test_trace_performance()

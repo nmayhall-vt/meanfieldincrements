@@ -2,7 +2,7 @@ import numpy as np
 from .Site import Site
 
 class LocalOperator:
-    def __init__(self, tensor: np.ndarray, sites: list[Site]):
+    def __init__(self, tensor: np.ndarray, sites: list[Site], tensor_format: str = 'matrix'):
         """
         Initialize a local operator.
 
@@ -13,6 +13,7 @@ class LocalOperator:
         self.tensor = tensor
         self.sites = list(sites)
         self.N = len(sites)
+        self._tensor_format = tensor_format 
     
     def __repr__(self):
         return f"LocalOperator(sites={self.sites}, shape={self.tensor.shape})"
@@ -24,6 +25,10 @@ class LocalOperator:
         Returns:
             self: The LocalOperator instance with reshaped tensor.
         """
+        if self._tensor_format == 'tensor':
+            # Already in tensor form, no need to reshape
+            return self
+
         # Get dimensions of each site
         site_dims = [site.dimension for site in self.sites]
         
@@ -32,6 +37,7 @@ class LocalOperator:
         tensor_shape = site_dims + site_dims
         
         self.tensor = self.tensor.reshape(tensor_shape)
+        self._tensor_format = 'tensor'
         return self
 
     def unfold(self):
@@ -41,6 +47,9 @@ class LocalOperator:
         Returns:
             self: The LocalOperator instance with reshaped tensor.
         """
+        if self._tensor_format == 'matrix':
+            # Already in matrix form, no need to reshape
+            return self
         # Get dimensions of each site
         site_dims = [site.dimension for site in self.sites]
         
@@ -49,6 +58,7 @@ class LocalOperator:
         
         # Reshape to matrix form
         self.tensor = self.tensor.reshape(total_dim, total_dim)
+        self._tensor_format = 'matrix'
         return self
 
     def trace(self):
@@ -58,15 +68,64 @@ class LocalOperator:
         Returns:
             float or complex: The trace of the operator.
         """
-        # Ensure tensor is in folded (tensor) form
-        site_dims = [site.dimension for site in self.sites]
-        tensor_shape = site_dims + site_dims
-        tensor = self.tensor
-        if tensor.shape != tuple(tensor_shape):
-            tensor = tensor.reshape(tensor_shape)
-
-        # Trace over each site: contract each output index with its corresponding input index
-        trace_val = np.trace(tensor, axis1=0, axis2=self.N)
-        for i in range(1, self.N):
-            trace_val = np.trace(trace_val, axis1=0, axis2=trace_val.ndim // 2)
-        return trace_val
+        return np.trace(self.unfold().tensor)
+    
+    def partial_trace(self, traced_sites: list) -> 'LocalOperator':
+        """
+        Compute partial trace over specified sites.
+        
+        Args:
+            traced_sites: List of site indices to trace over
+            
+        Returns:
+            LocalOperator: Reduced operator after partial trace
+            
+        Example:
+            >>> # Trace out site 1 from a two-site operator
+            >>> sites = [Site(0, 2), Site(1, 2)]
+            >>> op = LocalOperator(tensor, sites)
+            >>> reduced_op = op.partial_trace([1])  # Returns single-site operator
+        """
+        if self.tensor.ndim == 2:
+            # Convert to folded form first
+            temp_op = LocalOperator(self.tensor.copy(), self.sites)
+            temp_op.fold()
+            return temp_op.partial_trace(traced_sites)
+        
+        # Find indices of sites to trace and keep
+        traced_indices = []
+        kept_sites = []
+        
+        for i, site in enumerate(self.sites):
+            if site.label in traced_sites:
+                traced_indices.append(i)
+            else:
+                kept_sites.append(site)
+        
+        if not traced_indices:
+            return LocalOperator(self.tensor.copy(), self.sites)
+        
+        # Contract traced indices using einsum
+        N = self.N
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        
+        if N <= 26:
+            # Build einsum string
+            input_indices = list(letters[:N]) + list(letters[:N])
+            
+            # Mark traced indices to be contracted
+            for idx in traced_indices:
+                input_indices[idx + N] = input_indices[idx]  # Same letter for bra/ket
+            
+            output_indices = []
+            for i in range(N):
+                if i not in traced_indices:
+                    output_indices.append(input_indices[i])
+                    output_indices.append(input_indices[i + N])
+            
+            einsum_string = ''.join(input_indices) + '->' + ''.join(output_indices)
+            reduced_tensor = np.einsum(einsum_string, self.tensor)
+            
+            return LocalOperator(reduced_tensor, kept_sites)
+        else:
+            raise NotImplementedError("Partial trace for >26 sites not implemented")
