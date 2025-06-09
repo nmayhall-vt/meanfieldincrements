@@ -1,19 +1,7 @@
 import numpy as np
+import meanfieldincrements 
+from meanfieldincrements import *
 
-class Site:
-    def __init__(self, label, dimension):
-        """
-        Represents a lattice site.
-
-        Args:
-            label (int): The site index or label.
-            dimension (int): The local Hilbert space dimension at this site.
-        """
-        self.label = int(label)
-        self.dimension = int(dimension)
-
-    def __repr__(self):
-        return f"Site(label={self.label}, dimension={self.dimension})"
 
 class LocalOperator:
     def __init__(self, tensor: np.ndarray, sites: list[Site]):
@@ -64,3 +52,23 @@ class LocalOperator:
         # Reshape to matrix form
         self.tensor = self.tensor.reshape(total_dim, total_dim)
         return self
+    def trace(self):
+        """
+        Compute the trace of the local operator tensor.
+
+        Returns:
+            float or complex: The trace of the operator.
+        """
+        # Ensure tensor is in folded (tensor) form
+        site_dims = [site.dimension for site in self.sites]
+        tensor_shape = site_dims + site_dims
+        tensor = self.tensor
+        if tensor.shape != tuple(tensor_shape):
+            tensor = tensor.reshape(tensor_shape)
+
+        # Trace over each site: contract each output index with its corresponding input index
+        axes = list(range(self.N))
+        trace_val = np.trace(tensor, axis1=0, axis2=self.N)
+        for i in range(1, self.N):
+            trace_val = np.trace(trace_val, axis1=0, axis2=trace_val.ndim // 2)
+        return trace_val

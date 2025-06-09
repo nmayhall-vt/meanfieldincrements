@@ -3,7 +3,7 @@
 import numpy as np
 
 # Add imports here
-from .meanfieldincrements import *
-from .local_operator import *
+from .Site import *
+from .LocalOperator import *
 
 from ._version import __version__
