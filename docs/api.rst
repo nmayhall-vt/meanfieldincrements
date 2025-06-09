@@ -4,4 +4,6 @@ API Documentation
 .. autosummary::
    :toctree: autosummary
 
-   meanfieldincrements.canvas
+   meanfieldincrements.LocalOperator
+   meanfieldincrements.Site
+   meanfieldincrements.LocalPauliOperator

@@ -62,7 +62,8 @@ jobs:
           pytest -v --cov=meanfieldincrements --cov-report=xml --color=yes meanfieldincrements/tests/
 
       - name: Upload coverage reports to Codecov
-          uses: codecov/codecov-action@v5
-          with:
-            token: ${{ secrets.CODECOV_TOKEN }}
-            slug: nmayhall-vt/MeanFieldIncrements
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: nmayhall-vt/MeanFieldIncrements
+
