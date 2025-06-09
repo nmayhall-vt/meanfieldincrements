@@ -254,7 +254,7 @@ class TestLocalOperator:
         print("\n3. Identity operators:")
         for n_sites in [1, 2, 3, 4]:
             sites = [Site(i, i+2) for i in range(n_sites)]
-            dim = 2**n_sites
+            dim = np.prod([site.dimension for site in sites]) 
             identity = np.eye(dim)
             op = LocalOperator(identity, sites)
             

@@ -22,7 +22,13 @@ class LocalOperator:
         elif self._tensor_format == 'tensor':
             if tensor.ndim != 2 * self.N:
                 raise ValueError(f"For tensor format, tensor must have shape (d1, d2, ..., dN, d1, d2, ..., dN) where N={self.N}.")
-    
+
+
+        site_dims = [site.dimension for site in sites]
+        total_dim = np.prod(site_dims)
+        if np.prod(self.tensor.shape) != total_dim ** 2:
+            raise ValueError(f"Tensor shape {tensor.shape} does not match the expected shape for sites with dimensions {site_dims}.")
+
     def __repr__(self):
         return f"LocalOperator(sites={self.sites}, shape={self.tensor.shape})"
 
