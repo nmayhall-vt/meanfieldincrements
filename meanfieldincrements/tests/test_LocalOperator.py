@@ -96,7 +96,7 @@ class TestLocalOperator:
         sites = [Site(0, 2), Site(1, 3)]
         # Start with tensor form
         tensor = np.random.random((2, 3, 2, 3))
-        op = LocalOperator(tensor.copy(), sites)
+        op = LocalOperator(tensor.copy(), sites, tensor_format='tensor')
         
         original_tensor = op.tensor.copy()
         
