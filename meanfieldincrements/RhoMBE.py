@@ -302,3 +302,29 @@ class RhoMBE:
         
         return out
 
+
+    # def to_LocalOperator(self):
+        
+    #     sites = []
+    #     for i,s in self.nbody_terms[1].items():
+    #         sites.append(s.sites[0])
+
+    #     if len(self.sites) > 26:
+    #         raise ValueError("Cannot handle more than 26 sites due to einsum limitations.")
+        
+
+    #     letters = 'abcdefghijklmnopqrstuvwxyz'
+
+    #     op = np.array([[1,]])
+    #     N = 0
+    #     for si in sites:
+    #         # Build einsum string
+    #         op_indices = list(letters[:N]) + list(letters.upper()[:N])
+
+    #         r 
+    #         # Mark traced indices to be contracted
+    #         for idx in traced_indices:
+    #             input_indices[idx + N] = input_indices[idx]  # Same letter for bra/ket
+    #     print(sites)
+    #     for si in sites:
+    #         op = np.kron(result, PAULI_X)

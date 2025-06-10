@@ -10,7 +10,7 @@ def test_mbe_trace_functions():
     print("Testing MBE trace functions...")
     
     # Test 1: Pure mean-field state (no corrections)
-    sites = [Site(0, 2), Site(1, 2), Site(2, 2)]
+    sites = [Site(0, 2), Site(1, 4), Site(2, 3)]
     rho = RhoMBE(sites).initialize_mixed()
 
     # Build target density 
@@ -56,5 +56,24 @@ def test_mbe_trace_functions():
         rho.nbody_terms[3][si.label, sj.label, sk.label] = lambda_ijk
 
 
+    print("\n4. Rebuilding the density matrix:")
+    # Check that we rebuild the 3site rdm 
+    a = rho.nbody_terms[1][(sites[0].label,)].fold().tensor
+    b = rho.nbody_terms[1][(sites[1].label,)].fold().tensor
+    c = rho.nbody_terms[1][(sites[2].label,)].fold().tensor
+    ab = rho.nbody_terms[2][sites[0].label, sites[1].label].fold().tensor
+    ac = rho.nbody_terms[2][sites[0].label, sites[2].label].fold().tensor
+    bc = rho.nbody_terms[2][sites[1].label, sites[2].label].fold().tensor
+    abc = rho.nbody_terms[3][sites[0].label, sites[1].label, sites[2].label].fold().tensor
+
+    r_rebuilt =  np.einsum('iI,jJ,kK->ijkIJK', a, b, c)
+    r_rebuilt += np.einsum('ijIJ,kK->ijkIJK', ab, c)
+    r_rebuilt += np.einsum('ikIK,jJ->ijkIJK', ac, b)
+    r_rebuilt += np.einsum('jkJK,iI->ijkIJK', bc, a)
+    r_rebuilt += abc 
+
+    print(" norm of rho - rho_rebuilt: ", np.linalg.norm(lo.fold().tensor - r_rebuilt))
+
+    np.testing.assert_allclose(lo.fold().tensor, r_rebuilt, atol=1e-10)
 if __name__ == "__main__":
     test_mbe_trace_functions()
