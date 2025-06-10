@@ -1,8 +1,9 @@
 import numpy as np
 from .Site import Site
+from typing import List, Union, Optional
 
 class LocalOperator:
-    def __init__(self, tensor: np.ndarray, sites: list[Site], tensor_format: str = 'matrix'):
+    def __init__(self, tensor: np.ndarray, sites: List[Site], tensor_format: str = 'matrix'):
         """
         Initialize a local operator.
 
@@ -28,10 +29,26 @@ class LocalOperator:
         total_dim = np.prod(site_dims)
         if np.prod(self.tensor.shape) != total_dim ** 2:
             raise ValueError(f"Tensor shape {tensor.shape} does not match the expected shape for sites with dimensions {site_dims}.")
+        
+        if tensor_format == 'matrix':
+            if tensor.shape != (total_dim, total_dim):
+                raise ValueError(f"Matrix shape {tensor.shape} incompatible with sites dimensions {site_dims}")
+        elif tensor_format == 'tensor':
+            expected_shape = tuple(site_dims + site_dims)
+            if tensor.shape != expected_shape:
+                raise ValueError(f"Tensor shape {tensor.shape} incompatible with expected {expected_shape}")
+
 
     def __repr__(self):
         return f"LocalOperator(sites={self.sites}, shape={self.tensor.shape})"
 
+    def __str__(self):
+        out = "OP: "
+        for si in self.sites:
+            out += str(si.label) + " "
+        out += str(self.tensor.shape)    
+        return out
+    
     def fold(self):
         """
         Reshape self.tensor from matrix to tensor form based on the operator's site dimensions.
@@ -84,7 +101,7 @@ class LocalOperator:
         """
         return np.trace(self.unfold().tensor)
     
-    def partial_trace(self, traced_sites: list) -> 'LocalOperator':
+    def partial_trace(self, traced_sites: List) -> 'LocalOperator':
         """
         Compute partial trace over specified sites.
         
@@ -102,7 +119,7 @@ class LocalOperator:
         """
         
         for i in traced_sites:
-            if i >= self.N or i < 0:
+            if i not in [i.label for i in self.sites]:
                 raise ValueError(f"Invalid site index {i} for partial trace. Operator has {self.N} sites.")
 
         # Ensure tensor is in folded form
@@ -143,7 +160,79 @@ class LocalOperator:
 
             einsum_string = ''.join(input_indices) + '->' + ''.join(output_indices)
             reduced_tensor = np.einsum(einsum_string, self.tensor)
-            
             return LocalOperator(reduced_tensor, kept_sites, tensor_format='tensor')
         else:
             raise NotImplementedError("Partial trace for >26 sites not implemented")
+
+
+    def compute_nbody_marginal(self, sites:List[Site]):
+        """
+        Compute the 2-body marginal operator for the specified pair of sites.
+        This method calculates the reduced density matrix for the two given sites
+        by tracing out the environment (all other sites) and constructs a 
+        LocalOperator representing the 2-body marginal.
+
+        Args:
+            si (Site): The first site for which to compute the 2-body marginal.
+            sj (Site): The second site for which to compute the 2-body marginal.
+
+        Returns:
+            LocalOperator: The 2-body marginal operator for the specified sites.
+        """
+        # Ensure tensor is in folded form
+        self.fold()
+        
+        env = [s.label for s in self.sites if s not in sites]
+        rho_ij = self.partial_trace(env)
+        return LocalOperator(rho_ij.tensor, sites, tensor_format='tensor')
+
+    def compute_2body_cumulant(self, si:Site, sj:Site):
+        """
+        Compute the 2-body cumulant for a pair of sites.
+        This function calculates the 2-body cumulant operator for two sites, `si` and `sj`.
+        The cumulant is derived from the 2-body marginal density matrix and the 
+        1-body reduced density matrices of the individual sites.
+        Args:
+            si (Site): The first site for which the 2-body cumulant is computed.
+            sj (Site): The second site for which the 2-body cumulant is computed.
+        Returns:
+            LocalOperator: The 2-body cumulant operator represented as a `LocalOperator` 
+            object in matrix format.
+        """
+        rho_ij = self.compute_nbody_marginal([si, sj])
+        rho_j = rho_ij.partial_trace([si.label]).unfold()
+        rho_i = rho_ij.partial_trace([sj.label]).unfold()
+        
+        lambda_ij = rho_ij.unfold().tensor - np.kron(rho_i.tensor, rho_j.tensor)
+        return LocalOperator(lambda_ij, [si, sj], tensor_format='matrix')
+
+    def compute_3body_cumulant(self, si:Site, sj:Site, sk:Site):
+        """
+        Compute the 2-body cumulant for a pair of sites.
+        This function calculates the 2-body cumulant operator for two sites, `si` and `sj`.
+        The cumulant is derived from the 2-body marginal density matrix and the 
+        1-body reduced density matrices of the individual sites.
+        Args:
+            si (Site): The first site for which the 2-body cumulant is computed.
+            sj (Site): The second site for which the 2-body cumulant is computed.
+        Returns:
+            LocalOperator: The 2-body cumulant operator represented as a `LocalOperator` 
+            object in matrix format.
+        """
+        r_ijk = self.compute_nbody_marginal([si, sj, sk]).fold()
+        l_ij = r_ijk.compute_2body_cumulant(si, sj).fold()
+        l_ik = r_ijk.compute_2body_cumulant(si, sk).fold()
+        l_jk = r_ijk.compute_2body_cumulant(sj, sk).fold()
+
+        r_i = r_ijk.compute_nbody_marginal([si]).fold()
+        r_j = r_ijk.compute_nbody_marginal([sj]).fold()
+        r_k = r_ijk.compute_nbody_marginal([sk]).fold()
+
+        l = r_ijk.tensor.copy()
+
+        l -= np.einsum('ijIJ, kK->ijkIJK', l_ij.tensor, r_k.tensor)
+        l -= np.einsum('ikIK, jJ->ijkIJK', l_ik.tensor, r_j.tensor)
+        l -= np.einsum('jkJK, iI->ijkIJK', l_jk.tensor, r_i.tensor)
+        l -= np.einsum('iI,jJ,kK->ijkIJK', r_i.tensor, r_j.tensor, r_k.tensor)
+
+        return LocalOperator(l, [si, sj, sk], tensor_format='tensor')

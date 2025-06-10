@@ -1,10 +1,5 @@
 import numpy as np
 
-PAULI_X = np.array([[0, 1], [1, 0]])
-PAULI_Y = np.array([[0, -1j], [1j, 0]])
-PAULI_Z = np.array([[1, 0], [0, -1]])
-PAULI_I = np.array([[1, 0], [0, 1]])
-
 
 class PauliString:
     '''
@@ -28,6 +23,11 @@ class PauliString:
         # Extract a local Pauli string
         local_ps = ps.get_local_string([0, 2])
     '''
+    PAULI_X = np.array([[0, 1], [1, 0]])
+    PAULI_Y = np.array([[0, -1j], [1j, 0]])
+    PAULI_Z = np.array([[1, 0], [0, -1]])
+    PAULI_I = np.array([[1, 0], [0, 1]])
+
     def __init__(self, string:str, coeff = 1.0):
         self.string = string
         self.coeff = coeff

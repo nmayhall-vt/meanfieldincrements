@@ -1,31 +1,60 @@
 import pytest
 import numpy as np
 from meanfieldincrements import Site, LocalOperator, RhoMBE
+from itertools import combinations
 
-class RhoMBE_TEST:
-
-    def test_5qubits(self):
-        nsites = 5
-        sites = [Site(i, 2) for i in range(nsites)]
-        
-        rho = RhoMBE(sites).initialize_mixed()
-        print(rho)
-
-def test_jobs():
-    test_instance = RhoMBE_TEST() 
+# Test functions for the corrected MBE trace operations
+def test_mbe_trace_functions():
+    """Test the MBE trace functions with proper correction terms."""
+    np.random.seed(42)  # For reproducibility 
+    print("Testing MBE trace functions...")
     
-    methods = [method for method in dir(test_instance) if method.startswith('test_')]
+    # Test 1: Pure mean-field state (no corrections)
+    sites = [Site(0, 2), Site(1, 2), Site(2, 2)]
+    rho = RhoMBE(sites).initialize_mixed()
+
+    # Build target density 
+    total_dim = np.prod([site.dimension for site in sites])
+    r_exact = np.random.rand(total_dim, total_dim) + 1j * np.random.rand(total_dim, total_dim)
+    r_exact = (r_exact + r_exact.conj().T) / 2  # Ensure Hermitian
+    r_exact /= np.trace(r_exact)  # Normalize
     
-    for method_name in methods:
-        try:
-            print(f"Running {method_name}...")
-            getattr(test_instance, method_name)()
-            print(f"✓ {method_name} passed")
-        except Exception as e:
-            print(f"✗ {method_name} failed: {e}")
+    lo = LocalOperator(r_exact, sites)
+    print(lo)
+
+    print(f"   Mean-field trace: {rho.trace():.6f}")
+    print(f"   Expected: {1.0:.6f}")
+    
+    print("\n1. Adding 1-body term:")
+    for si in sites:
+        env = [s for s in sites if s.label != si.label]
+        rho_i = lo.compute_nbody_marginal([si])
+        rho.nbody_terms[1][(si.label,)] = rho_i 
+    
+    # Test 2: Add a 2-body correction
+    print("\n2. Adding 2-body correction term:")
+
+    rho.nbody_terms[2] = {}
+    for (si, sj) in combinations(sites, 2):
+        print(f"   Adding correction for sites {si.label} and {sj.label}")
+
+        lambda_ij = lo.compute_2body_cumulant(si, sj)
+        print("     trace of lambda_ij: ", lambda_ij.trace())
+        print("     norm  of lambda_ij: ", np.linalg.norm(lambda_ij.tensor))
+        rho.nbody_terms[2][si.label, sj.label] = lambda_ij
+    
+    
+    print("\n3. Adding 3-body correction term:")
+    
+    rho.nbody_terms[3] = {}
+    for (si, sj, sk) in combinations(sites, 3):
+        print(f"   Adding correction for sites %i %i %i " %(si.label, sj.label, sk.label))
+
+        lambda_ijk = lo.compute_3body_cumulant(si, sj, sk)
+        print("     trace of lambda_ijk: ", lambda_ijk.trace())
+        print("     norm  of lambda_ijk: ", np.linalg.norm(lambda_ijk.tensor))
+        rho.nbody_terms[3][si.label, sj.label, sk.label] = lambda_ijk
 
 
 if __name__ == "__main__":
-    # # Run tests with pytest
-    """Simple test runner if pytest is not available."""
-    test_jobs()
+    test_mbe_trace_functions()
