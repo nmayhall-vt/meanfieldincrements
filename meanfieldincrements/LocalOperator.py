@@ -1,4 +1,5 @@
 import numpy as np
+import copy as cp
 from .Site import Site
 from typing import List, Union, Optional
 
@@ -83,7 +84,7 @@ class LocalOperator:
             return self
         # Get dimensions of each site
         site_dims = [site.dimension for site in self.sites]
-        
+
         # Calculate total dimension of the Hilbert space
         total_dim = np.prod(site_dims)
         
@@ -101,7 +102,7 @@ class LocalOperator:
         """
         return np.trace(self.unfold().tensor)
     
-    def partial_trace(self, traced_sites: List) -> 'LocalOperator':
+    def partial_trace(self, traced_sites: List[int]) -> 'LocalOperator':
         """
         Compute partial trace over specified sites.
         
@@ -236,3 +237,39 @@ class LocalOperator:
         l -= np.einsum('iI,jJ,kK->ijkIJK', r_i.tensor, r_j.tensor, r_k.tensor)
 
         return LocalOperator(l, [si, sj, sk], tensor_format='tensor')
+    
+    def __add__(self, other: 'LocalOperator') -> 'LocalOperator':
+        """
+        Add two LocalOperator instances together.
+
+        Args:
+            other (LocalOperator): The other LocalOperator to add.
+
+        Returns:
+            LocalOperator: A new LocalOperator representing the sum.
+
+        Raises:
+            ValueError: If the operators act on different sites or have incompatible shapes.
+        """
+        if self.sites != other.sites:
+            raise ValueError("Cannot add operators acting on different sites.")
+        # if self.tensor.shape != other.tensor.shape:
+        #     raise ValueError("Cannot add operators with different tensor shapes.")
+        # if self._tensor_format != other._tensor_format:
+        #     raise ValueError("Cannot add operators with different tensor formats.")
+
+        new_tensor = self.tensor + other.tensor
+        return LocalOperator(new_tensor, self.sites, tensor_format=self._tensor_format)
+    
+    def scale(self, scalar: Union[float, complex]) -> 'LocalOperator':
+        """
+        Scale the operator by a scalar.
+
+        Args:
+            scalar (float or complex): The scalar to multiply the operator by.
+
+        Returns:
+            LocalOperator: A new LocalOperator scaled by the given scalar.
+        """
+        scaled_tensor = self.tensor * scalar
+        return LocalOperator(scaled_tensor, self.sites, tensor_format=self._tensor_format)
