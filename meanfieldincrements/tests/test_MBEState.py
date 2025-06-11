@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import copy as cp
-from meanfieldincrements import Site, LocalOperator, RhoMBE
+from meanfieldincrements import Site, LocalOperator, MBEState
 from itertools import combinations
 
 def _rebuild_2site_rdm(rho):
@@ -44,7 +44,7 @@ def test_mbe_trace_functions():
     
     # Test 1: Pure mean-field state (no corrections)
     sites = [Site(0, 2), Site(1, 4), Site(2, 3)]
-    rho = RhoMBE(sites).initialize_mixed()
+    rho = MBEState(sites).initialize_mixed()
 
     # Build target density 
     total_dim = np.prod([site.dimension for site in sites])

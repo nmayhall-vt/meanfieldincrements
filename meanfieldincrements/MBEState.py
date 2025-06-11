@@ -6,7 +6,7 @@ from itertools import combinations
 from .Site import Site
 from .LocalOperator import LocalOperator
 
-class RhoMBE:
+class MBEState:
     """
     Many-Body Expansion (MBE) representation of a density matrix.
     
@@ -191,7 +191,7 @@ class RhoMBE:
         
         return out
 
-    def partial_trace(self, traced_sites: List[int]) -> 'RhoMBE':
+    def partial_trace(self, traced_sites: List[int]) -> 'MBEState':
         """
         Perform a partial trace operation over the specified sites.
 
@@ -225,7 +225,7 @@ class RhoMBE:
             rout = rout._trace_out_1site(i, verbose=0)
         return rout        
 
-    def _trace_out_1site(self, site_label: int, verbose=1) -> 'RhoMBE':
+    def _trace_out_1site(self, site_label: int, verbose=1) -> 'MBEState':
         """
         Trace out a single site from the MBE representation.
         
@@ -236,7 +236,7 @@ class RhoMBE:
             RhoMBE: New MBE representation with the specified site traced out.
         """
         new_sites = [site for site in self.sites if site.label != site_label]
-        new_rho = RhoMBE(new_sites)
+        new_rho = MBEState(new_sites)
         
         new_rho.fold()
 
@@ -260,7 +260,7 @@ class RhoMBE:
                     new_rho[term] += local_op.fold()
         return new_rho
     
-    def fold(self) -> 'RhoMBE':
+    def fold(self) -> 'MBEState':
         """
         Fold the MBE representation to ensure all LocalOperators are in standard
         form (i.e., tensor product form).
@@ -271,7 +271,7 @@ class RhoMBE:
             self.terms[term].fold()
         return self
     
-    def unfold(self) -> 'RhoMBE':
+    def unfold(self) -> 'MBEState':
         """
         Unfold the MBE (Many-Body Expansion) representation to ensure all LocalOperators 
         are converted into their matrix form. This operation modifies 
