@@ -20,14 +20,14 @@ class RhoMBE:
     
     Attributes:
         sites (List[Site]): All sites in the system
-        nbody_terms (Dict[int, Dict]): Dictionary mapping n-body order to correction terms
+        terms (Dict[int, Dict]): Dictionary mapping n-body order to correction terms
     """
     
     def __init__(self, sites: List[Site]):
         self.sites = sites
-        self.nbody_terms = {}
-        self.constant = 1   # constant term that multiplies each term in the MBE expansion
-        self.nbody_terms[1] = {}  # 1-body terms (marginals)
+        self.terms = {}
+        self.terms[1] = {}  # 1-body terms (marginals)
+        self.terms[2] = {}  # 2-body terms (marginals)
 
     def initialize_mixed(self):
         """
@@ -37,7 +37,7 @@ class RhoMBE:
         """
         for site in self.sites:
             mat = np.identity(site.dimension) / site.dimension
-            self.nbody_terms[1][(site.label,)] = LocalOperator(mat, [site])
+            self.terms[1][(site.label,)] = LocalOperator(mat, [site])
         return self
 
     def trace(self, sites_to_trace: Optional[List[int]] = None) -> Union[float, complex]:
@@ -76,8 +76,8 @@ class RhoMBE:
         """
         # Get all 1-body marginal traces
         marginal_traces = {}
-        if 1 in self.nbody_terms:
-            for site_tuple, marginal in self.nbody_terms[1].items():
+        if 1 in self.terms:
+            for site_tuple, marginal in self.terms[1].items():
                 site_label = site_tuple[0]  # Extract single site from tuple
                 marginal_traces[site_label] = marginal.trace()
         else:
@@ -91,11 +91,11 @@ class RhoMBE:
         total_trace = mean_field_trace
         
         # Add corrections from n-body terms (n ≥ 2)
-        for n_body in sorted(self.nbody_terms.keys()):
+        for n_body in sorted(self.terms.keys()):
             if n_body == 1:
                 continue  # Already handled in mean-field part
                 
-            for cluster_key, correction_term in self.nbody_terms[n_body].items():
+            for cluster_key, correction_term in self.terms[n_body].items():
                 # Trace of the correction term
                 correction_trace = correction_term.trace()
                 
@@ -107,93 +107,8 @@ class RhoMBE:
                 # Add contribution: Tr(λ_{cluster}) * ∏_{k∉cluster} Tr(ρ_k)
                 total_trace += correction_trace * remaining_trace_product
         
-        return total_trace * self.constant  # Include the constant term 
+        return total_trace 
     
-    # def _compute_partial_trace(self, sites_to_trace: List[int]) -> Union[float, complex]:
-    #     """
-    #     Compute partial trace over specified sites.
-        
-    #     For the MBE form, we need to trace out sites from each term:
-    #     ρ = ∏_i ρ_i + Σ_{clusters} λ_{cluster} ∏_{k∉cluster} ρ_k
-        
-    #     When tracing over sites S:
-    #     Tr_S(ρ) = ∏_{i∉S} ρ_i ∏_{j∈S} Tr(ρ_j) + Σ_{clusters} Tr_S(λ_{cluster} ∏_{k∉cluster} ρ_k)
-        
-    #     Args:
-    #         sites_to_trace (List[int]): Site labels to trace over.
-            
-    #     Returns:
-    #         Union[float, complex]: The partial trace result.
-    #     """
-    #     traced_sites_set = set(sites_to_trace)
-    #     all_sites_set = {site.label for site in self.sites}
-    #     remaining_sites = all_sites_set - traced_sites_set
-        
-    #     # Get marginal traces for traced sites and operators for remaining sites
-    #     traced_marginal_traces = {}
-    #     remaining_marginals = {}
-        
-    #     if 1 in self.nbody_terms:
-    #         for site_tuple, marginal in self.nbody_terms[1].items():
-    #             site_label = site_tuple[0]  # Extract single site from tuple
-    #             if site_label in traced_sites_set:
-    #                 traced_marginal_traces[site_label] = marginal.trace()
-    #             else:
-    #                 remaining_marginals[site_label] = marginal
-        
-    #     # Handle missing marginals (assume identity/normalized)
-    #     for site_label in traced_sites_set:
-    #         if site_label not in traced_marginal_traces:
-    #             traced_marginal_traces[site_label] = 1.0
-        
-    #     # Mean-field contribution: ∏_{i∉S} ρ_i ∏_{j∈S} Tr(ρ_j)
-    #     traced_product = np.prod(list(traced_marginal_traces.values()))
-        
-    #     if not remaining_sites:
-    #         # All sites traced - return scalar
-    #         total_result = traced_product
-    #     else:
-    #         # Some sites remain - this becomes more complex
-    #         # For simplicity, we'll compute the effective trace
-    #         total_result = traced_product
-        
-    #     # Add correction terms
-    #     for n_body in sorted(self.nbody_terms.keys()):
-    #         if n_body == 1:
-    #             continue  # Already handled
-                
-    #         for cluster_key, correction_term in self.nbody_terms[n_body].items():
-    #             cluster_sites_set = set(cluster_key)  # cluster_key is already a tuple
-                
-    #             # Determine how this cluster overlaps with traced sites
-    #             cluster_traced = cluster_sites_set.intersection(traced_sites_set)
-    #             cluster_remaining = cluster_sites_set - traced_sites_set
-                
-    #             if cluster_traced:
-    #                 # This correction term involves traced sites
-    #                 if cluster_remaining:
-    #                     # Partial trace of the correction term
-    #                     try:
-    #                         partial_correction = correction_term.partial_trace(list(cluster_traced))
-    #                         correction_trace = partial_correction.trace()
-    #                     except:
-    #                         # Fallback: full trace if partial trace fails
-    #                         correction_trace = correction_term.trace()
-    #                 else:
-    #                     # Entire cluster is traced
-    #                     correction_trace = correction_term.trace()
-                    
-    #                 # Product of remaining marginal traces outside this cluster
-    #                 other_sites = all_sites_set - cluster_sites_set
-    #                 other_traced = other_sites.intersection(traced_sites_set)
-    #                 other_remaining = other_sites - traced_sites_set
-                    
-    #                 other_traced_product = np.prod([traced_marginal_traces.get(site, 1.0) 
-    #                                               for site in other_traced])
-                    
-    #                 total_result += correction_trace * other_traced_product
-        
-    #     return total_result 
     
     def _get_cluster_sites(self, cluster_key: Tuple[int, ...]) -> List[int]:
         """
@@ -221,8 +136,8 @@ class RhoMBE:
             LocalOperator: The correction term λ_{ij}.
         """
         # Get 1-body marginals
-        rho_i = self.nbody_terms[1][(site_i,)]
-        rho_j = self.nbody_terms[1][(site_j,)]
+        rho_i = self.terms[1][(site_i,)]
+        rho_j = self.terms[1][(site_j,)]
         
         # Compute tensor product ρ_i ⊗ ρ_j
         rho_i.unfold()
@@ -247,8 +162,8 @@ class RhoMBE:
         Returns:
             LocalOperator: The marginal density matrix ρ_i.
         """
-        if 1 in self.nbody_terms and (site_label,) in self.nbody_terms[1]:
-            return self.nbody_terms[1][(site_label,)]
+        if 1 in self.terms and (site_label,) in self.terms[1]:
+            return self.terms[1][(site_label,)]
         else:
             # Default to maximally mixed state
             site = next((s for s in self.sites if s.label == site_label), None)
@@ -271,9 +186,8 @@ class RhoMBE:
         """String representation showing MBE structure."""
         out = "RhoMBE Density Matrix (MBE Form):\n"
         out += f"  Total sites: {len(self.sites)}\n"
-        out += " Constant term: " + str(self.constant) + "\n"
 
-        for n,terms in self.nbody_terms.items(): 
+        for n,terms in self.terms.items(): 
             out += " %i-body terms: " %n
             out += "\n"
             for i in terms.keys():
@@ -300,11 +214,6 @@ class RhoMBE:
         """
         Trace out a single site from the MBE representation.
         
-        In order to handle the fact that some local operators may not have unit trace
-        (i.e., when this isn't a state), we need to keep track of this trace. 
-        We set the self.constant to the trace of the 1body term we are tracing, 
-        and then divide each n-body term by this constant. 
-
         Args:
             site_label (int): Label of the site to trace out.
             
@@ -315,23 +224,21 @@ class RhoMBE:
         new_rho = RhoMBE(new_sites)
         new_sites_idx = [i.label for i in new_sites]
 
-        trace_i = self.nbody_terms[1][(site_label,)].trace()
+        trace_i = self.terms[1][(site_label,)].trace()
         # print(" trace of rho(i) = ", trace_i) 
         
-        # Get scalar value
-        new_rho.constant = self.constant * trace_i 
 
-        for n_body, terms in self.nbody_terms.items():
-            new_rho.nbody_terms[n_body] = {}
+        for n_body, terms in self.terms.items():
+            new_rho.terms[n_body] = {}
 
         # Copy 1-body terms that do not involve the traced site
-        for key, term in self.nbody_terms[1].items():
+        for key, term in self.terms[1].items():
             if site_label not in key:
-                new_rho.nbody_terms[1][key] = term
+                new_rho.terms[1][key] = term
 
 
         # Handle n-body corrections involving the traced site
-        for n_body, terms in self.nbody_terms.items():
+        for n_body, terms in self.terms.items():
             if n_body == 1:
                 continue
             for sites_i, term in terms.items():
@@ -343,8 +250,8 @@ class RhoMBE:
 
                     new_sites = traced_correction.sites
                     new_sites_idx = tuple([site.label for site in new_sites]) 
-                    if new_sites_idx not in new_rho.nbody_terms[n_body-1]:
-                        new_rho.nbody_terms[n_body-1][new_sites_idx] = traced_correction
+                    if new_sites_idx not in new_rho.terms[n_body-1]:
+                        new_rho.terms[n_body-1][new_sites_idx] = traced_correction
                     else:
-                        new_rho.nbody_terms[n_body-1][new_sites_idx] += traced_correction
+                        new_rho.terms[n_body-1][new_sites_idx] += traced_correction
         return new_rho
