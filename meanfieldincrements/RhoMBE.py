@@ -48,13 +48,25 @@ class RhoMBE:
     
     def compute_2body_cumulant(self, rho_ij: LocalOperator) -> LocalOperator:
         """
-        Compute 2-body correction: λ_{ij} = ρ_{ij} - ρ_i ⊗ ρ_j
-        
-        Args:
-            rho_ij (LocalOperator): The 2-body density matrix ρ_{ij}.
-            
-        Returns:
-            LocalOperator: The correction term λ_{ij}.
+        Compute the 2-body cumulant (correction term) for a given 2-body density matrix.
+        The 2-body cumulant, denoted as λ_{ij}, is calculated as the difference between 
+        the 2-body density matrix ρ_{ij} and the tensor product of the 1-body marginals 
+        ρ_i and ρ_j. This function ensures that the input represents a 2-body density 
+        matrix and computes the correction term accordingly.
+            rho_ij (LocalOperator): The 2-body density matrix ρ_{ij}, represented as a 
+                LocalOperator object. It must correspond to exactly two sites.
+            LocalOperator: The computed 2-body cumulant λ_{ij}, represented as a 
+                LocalOperator object.
+        Raises:
+            ValueError: If the input LocalOperator does not represent a 2-body density 
+                matrix (i.e., it does not correspond to exactly two sites).
+        Notes:
+            - The function retrieves the 1-body marginals ρ_i and ρ_j from the `self.terms` 
+              dictionary using the site labels of the input 2-body density matrix.
+            - The tensor product ρ_i ⊗ ρ_j is computed using the Einstein summation 
+              convention via `numpy.einsum`.
+            - The resulting correction term λ_{ij} is obtained by subtracting the tensor 
+              product from the input 2-body density matrix.
         """
         if len(rho_ij.sites) != 2:
             raise ValueError("Input LocalOperator must represent a 2-body density matrix.")
@@ -73,6 +85,31 @@ class RhoMBE:
         return lam_ij 
 
     def compute_3body_cumulant(self, rho_ijk: LocalOperator) -> LocalOperator:
+        """
+        Compute the 3-body cumulant for a given 3-body joint density operator.
+        The 3-body cumulant is calculated by subtracting the contributions of 
+        the mean-field term (product of 1-body marginals) and the 2-body correction 
+        terms from the 3-body joint density operator.
+        Args:
+            rho_ijk (LocalOperator): The 3-body joint density operator, represented 
+                as a `LocalOperator` object, which contains the tensor and site 
+                information for the 3-body system.
+        Returns:
+            LocalOperator: A `LocalOperator` object representing the 3-body cumulant 
+            tensor, with the same site information as the input `rho_ijk`.
+        Notes:
+            - The 1-body marginals (ρ_i, ρ_j, ρ_k) are retrieved from the MBE 
+              (many-body expansion) terms.
+            - The 2-body corrections (λ_{ij}, λ_{ik}, λ_{jk}) are also retrieved 
+              from the MBE terms.
+            - The cumulant is computed by subtracting the following terms from 
+              the 3-body joint density:
+                1. Mean-field term: ρ_i ⊗ ρ_j ⊗ ρ_k
+                2. 2-body correction terms:
+                   - λ_{ij} ⊗ ρ_k
+                   - λ_{ik} ⊗ ρ_j
+                   - λ_{jk} ⊗ ρ_i
+        """
         site_i, site_j, site_k = [i.label for i in rho_ijk.sites]
         
         # Get 1-body marginals from MBE expansion
@@ -155,6 +192,30 @@ class RhoMBE:
         return out
 
     def partial_trace(self, traced_sites: List[int]) -> 'RhoMBE':
+        """
+        Perform a partial trace operation over the specified sites.
+
+        This method reduces the density matrix by tracing out the degrees of freedom
+        associated with the specified sites. The resulting object represents the 
+        reduced density matrix after the partial trace.
+
+        Args:
+            traced_sites (List[int]): A list of site indices to trace out. Each index
+                must correspond to a valid site label in the operator.
+
+        Returns:
+            RhoMBE: A new RhoMBE object representing the reduced density matrix 
+            after the partial trace operation.
+
+        Raises:
+            ValueError: If any of the specified site indices in `traced_sites` are 
+            invalid or do not exist in the operator.
+
+        Example:
+            >>> rho = RhoMBE(...)
+            >>> reduced_rho = rho.partial_trace([0, 2])
+            >>> print(reduced_rho)
+        """
 
         rout = cp.deepcopy(self)        
         for i in traced_sites:
@@ -212,10 +273,12 @@ class RhoMBE:
     
     def unfold(self) -> 'RhoMBE':
         """
-        Unfold the MBE representation to ensure all LocalOperators are in standard
-        form (i.e., tensor product form).
-        Returns:
-            RhoMBE: The folded MBE representation.
+        Unfold the MBE (Many-Body Expansion) representation to ensure all LocalOperators 
+        are converted into their matrix form. This operation modifies 
+        the terms in-place by unfolding each LocalOperator.
+
+            RhoMBE: The updated MBE representation with all LocalOperators in their 
+            unfolded  form.
         """
         for term, local_op in self.terms.items():
             self.terms[term].unfold()
