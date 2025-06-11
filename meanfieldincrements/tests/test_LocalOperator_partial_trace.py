@@ -251,12 +251,20 @@ class TestPartialTrace:
         """Test error handling in partial trace."""
         sites = [Site(0, 2), Site(1, 2)]
         matrix = np.random.random((4, 4))
-        op = LocalOperator(matrix, sites)
+        op = LocalOperator(matrix, sites, tensor_format="matrix")
         op.fold()
         
         # Test tracing non-existent site
         with pytest.raises((ValueError, KeyError, IndexError)):
             op.partial_trace([5])  # Site 5 doesn't exist
+    
+    def test_2(self):
+        """Test error handling in partial trace."""
+        sites = [Site(0, 2), Site(1, 2), Site(1, 3)]
+        matrix = np.random.random((12, 12))
+        op = LocalOperator(matrix, sites, tensor_format="matrix")
+        op2 = op.compute_nbody_marginal(sites)
+        np.testing.assert_array_almost_equal(op.tensor, op2.tensor)
 
 
 def partial_trace_comprehensive():
@@ -275,7 +283,8 @@ def partial_trace_comprehensive():
         'test_partial_trace_trace_all_sites',
         'test_partial_trace_from_matrix_form',
         'test_partial_trace_properties',
-        'test_partial_trace_error_cases'
+        'test_partial_trace_error_cases',
+        'test_2'
     ]
     
     passed = 0

@@ -26,8 +26,13 @@ class RhoMBE:
     def __init__(self, sites: List[Site]):
         self.sites = sites
         self.terms = {}
-        self.terms[1] = {}  # 1-body terms (marginals)
-        self.terms[2] = {}  # 2-body terms (marginals)
+    
+    def __getitem__(self, key):
+        return self.terms[key]
+    def __setitem__(self, key, value:'LocalOperator'):
+        self.terms[key] = value
+    def __iter__(self):
+        return iter(self.terms.values())
 
     def initialize_mixed(self):
         """
@@ -37,121 +42,73 @@ class RhoMBE:
         """
         for site in self.sites:
             mat = np.identity(site.dimension) / site.dimension
-            self.terms[1][(site.label,)] = LocalOperator(mat, [site])
+            self.terms[(site.label,)] = LocalOperator(mat, [site])
         return self
 
-    def trace(self, sites_to_trace: Optional[List[int]] = None) -> Union[float, complex]:
-        """
-        Compute the trace of the MBE density matrix over specified sites.
-        
-        For the MBE form: ρ = ∏_i ρ_i + Σ_{clusters} λ_{cluster} ∏_{k∉cluster} ρ_k
-        
-        The trace is computed by carefully handling each term in the expansion.
-        
-        Args:
-            sites_to_trace (Optional[List[int]]): Site labels to trace over.
-                If None, traces over all sites (returns scalar).
-                
-        Returns:
-            Union[float, complex]: The trace value.
-        """
-        if sites_to_trace is None:
-            return self._compute_full_trace()
-        else:
-            return self._compute_partial_trace(sites_to_trace)
     
-    def _compute_full_trace(self) -> Union[float, complex]:
-        """
-        Compute the full trace of the MBE density matrix.
-        
-        For ρ = ∏_i ρ_i + Σ_{clusters} λ_{cluster} ∏_{k∉cluster} ρ_k:
-        
-        Tr(ρ) = Tr(∏_i ρ_i) + Σ_{clusters} Tr(λ_{cluster}) Tr(∏_{k∉cluster} ρ_k)
-               = ∏_i Tr(ρ_i) + Σ_{clusters} Tr(λ_{cluster}) ∏_{k∉cluster} Tr(ρ_k)
-        
-        Since each ρ_i should be normalized: Tr(ρ_i) = 1
-        
-        Returns:
-            Union[float, complex]: The full trace (should be 1.0 for normalized ρ).
-        """
-        # Get all 1-body marginal traces
-        marginal_traces = {}
-        if 1 in self.terms:
-            for site_tuple, marginal in self.terms[1].items():
-                site_label = site_tuple[0]  # Extract single site from tuple
-                marginal_traces[site_label] = marginal.trace()
-        else:
-            # No 1-body terms - assume identity
-            for site in self.sites:
-                marginal_traces[site.label] = 1.0
-        
-        # Product of all marginal traces (mean-field contribution)
-        mean_field_trace = np.prod(list(marginal_traces.values()))
-        
-        total_trace = mean_field_trace
-        
-        # Add corrections from n-body terms (n ≥ 2)
-        for n_body in sorted(self.terms.keys()):
-            if n_body == 1:
-                continue  # Already handled in mean-field part
-                
-            for cluster_key, correction_term in self.terms[n_body].items():
-                # Trace of the correction term
-                correction_trace = correction_term.trace()
-                
-                # Product of traces for sites not in this cluster
-                cluster_sites = list(cluster_key)  # cluster_key is already a tuple
-                remaining_sites = set(marginal_traces.keys()) - set(cluster_sites)
-                remaining_trace_product = np.prod([marginal_traces[site] for site in remaining_sites])
-                
-                # Add contribution: Tr(λ_{cluster}) * ∏_{k∉cluster} Tr(ρ_k)
-                total_trace += correction_trace * remaining_trace_product
-        
-        return total_trace 
-    
-    
-    def _get_cluster_sites(self, cluster_key: Tuple[int, ...]) -> List[int]:
-        """
-        Extract site labels from cluster key.
-        
-        Args:
-            cluster_key (Tuple[int, ...]): Tuple of site labels in the cluster.
-            
-        Returns:
-            List[int]: List of site labels in the cluster.
-        """
-        return list(cluster_key)
-    
-    
-    def compute_2body_correction(self, site_i: int, site_j: int, joint_density: LocalOperator) -> LocalOperator:
+    def compute_2body_cumulant(self, rho_ij: LocalOperator) -> LocalOperator:
         """
         Compute 2-body correction: λ_{ij} = ρ_{ij} - ρ_i ⊗ ρ_j
         
         Args:
-            site_i (int): First site label.
-            site_j (int): Second site label.
-            joint_density (LocalOperator): The 2-body density matrix ρ_{ij}.
+            rho_ij (LocalOperator): The 2-body density matrix ρ_{ij}.
             
         Returns:
             LocalOperator: The correction term λ_{ij}.
         """
+        if len(rho_ij.sites) != 2:
+            raise ValueError("Input LocalOperator must represent a 2-body density matrix.")
+        site_i, site_j = [i.label for i in rho_ij.sites]
+
         # Get 1-body marginals
-        rho_i = self.terms[1][(site_i,)]
-        rho_j = self.terms[1][(site_j,)]
+        rho_i = self.terms[(site_i,)]
+        rho_j = self.terms[(site_j,)]
         
         # Compute tensor product ρ_i ⊗ ρ_j
-        rho_i.unfold()
-        rho_j.unfold()
-        product_matrix = np.kron(rho_i.tensor, rho_j.tensor)
+        rho_i.fold()
+        rho_j.fold()
+        lam_ij = cp.deepcopy(rho_ij).fold()
+        lam_ij.tensor -= np.einsum("iI,jJ->ijIJ", rho_i.tensor, rho_j.tensor)
         
-        # Get joint density matrix
-        joint_density.unfold()
+        return lam_ij 
+
+    def compute_3body_cumulant(self, rho_ijk: LocalOperator) -> LocalOperator:
+        site_i, site_j, site_k = [i.label for i in rho_ijk.sites]
         
-        # Correction: λ_{ij} = ρ_{ij} - ρ_i ⊗ ρ_j
-        correction_matrix = joint_density.tensor - product_matrix
+        # Get 1-body marginals from MBE expansion
+        rho_i = self.terms[(site_i,)].fold()
+        rho_j = self.terms[(site_j,)].fold() 
+        rho_k = self.terms[(site_k,)].fold()
         
-        return LocalOperator(correction_matrix, joint_density.sites)
-    
+        # Get 2-body corrections from MBE expansion
+        lambda_ij = self.terms[(site_i, site_j)].fold()
+        lambda_ik = self.terms[(site_i, site_k)].fold()
+        lambda_jk = self.terms[(site_j, site_k)].fold()
+        
+        # Start with the 3-body joint density
+        rho_ijk.fold()
+        correction_tensor = rho_ijk.tensor.copy()
+        
+        # Subtract mean-field term: ρ_i ⊗ ρ_j ⊗ ρ_k
+        correction_tensor -= np.einsum('iI,jJ,kK->ijkIJK', 
+                                    rho_i.tensor, rho_j.tensor, rho_k.tensor)
+        
+        # Subtract 2-body correction terms:
+        # λ_{ij} ⊗ ρ_k
+        correction_tensor -= np.einsum('ijIJ,kK->ijkIJK', 
+                                    lambda_ij.tensor, rho_k.tensor)
+        
+        # λ_{ik} ⊗ ρ_j
+        correction_tensor -= np.einsum('ikIK,jJ->ijkIJK', 
+                                    lambda_ik.tensor, rho_j.tensor)
+        
+        # λ_{jk} ⊗ ρ_i  
+        correction_tensor -= np.einsum('jkJK,iI->ijkIJK', 
+                                    lambda_jk.tensor, rho_i.tensor)
+        
+        return LocalOperator(correction_tensor, rho_ijk.sites, tensor_format='tensor')
+
+
     def get_marginal_density_matrix(self, site_label: int) -> LocalOperator:
         """
         Get the 1-body marginal density matrix for a specific site.
@@ -162,8 +119,8 @@ class RhoMBE:
         Returns:
             LocalOperator: The marginal density matrix ρ_i.
         """
-        if 1 in self.terms and (site_label,) in self.terms[1]:
-            return self.terms[1][(site_label,)]
+        if (site_label,) in self.terms:
+            return self.terms[(site_label,)]
         else:
             # Default to maximally mixed state
             site = next((s for s in self.sites if s.label == site_label), None)
@@ -173,30 +130,27 @@ class RhoMBE:
             identity = np.eye(site.dimension) / site.dimension
             return LocalOperator(identity, [site])
     
-    def check_normalization(self) -> float:
-        """
-        Check if the density matrix is properly normalized.
-        
-        Returns:
-            float: The trace of the density matrix (should be 1.0).
-        """
-        return abs(self.trace())
     
     def __str__(self):
         """String representation showing MBE structure."""
         out = "RhoMBE Density Matrix (MBE Form):\n"
         out += f"  Total sites: {len(self.sites)}\n"
 
-        for n,terms in self.terms.items(): 
+        maxn = 0
+        for term in self.terms.keys():
+            if len(term) > maxn:
+                maxn = len(term)
+
+        for n in range(1,maxn+1):
             out += " %i-body terms: " %n
             out += "\n"
-            for i in terms.keys():
-                # print("    %s shape=" %str(i), terms[i].tensor.shape)
-                out += "    %s shape=" %str(i) +  str(terms[i].tensor.shape)
+            for idx, lo in self.terms.items():
+                if len(idx) != n:
+                    continue
+                out += "    %s shape=" % str(idx) + str(lo.tensor.shape)
+                out += " trace = %.6f" % np.real(lo.trace())
+                out += " norm = %.6f" % np.linalg.norm(lo.tensor)
                 out += "\n"
-        
-        total_trace = self.trace()
-        out += f" Total trace: {total_trace:.6f}\n"
         
         return out
 
@@ -222,36 +176,47 @@ class RhoMBE:
         """
         new_sites = [site for site in self.sites if site.label != site_label]
         new_rho = RhoMBE(new_sites)
-        new_sites_idx = [i.label for i in new_sites]
-
-        trace_i = self.terms[1][(site_label,)].trace()
-        # print(" trace of rho(i) = ", trace_i) 
         
-
-        for n_body, terms in self.terms.items():
-            new_rho.terms[n_body] = {}
-
-        # Copy 1-body terms that do not involve the traced site
-        for key, term in self.terms[1].items():
-            if site_label not in key:
-                new_rho.terms[1][key] = term
-
+        new_rho.fold()
 
         # Handle n-body corrections involving the traced site
-        for n_body, terms in self.terms.items():
-            if n_body == 1:
+        for term,local_op in self.terms.items():
+            if term == (site_label,):
                 continue
-            for sites_i, term in terms.items():
-                if site_label in sites_i:
-                    # Compute the new correction term
-                    traced_correction = term.partial_trace([site_label])
-
-                    traced_correction.scale(1/trace_i)
-
-                    new_sites = traced_correction.sites
-                    new_sites_idx = tuple([site.label for site in new_sites]) 
-                    if new_sites_idx not in new_rho.terms[n_body-1]:
-                        new_rho.terms[n_body-1][new_sites_idx] = traced_correction
-                    else:
-                        new_rho.terms[n_body-1][new_sites_idx] += traced_correction
+            if site_label in term:
+                # Compute the new correction term
+                traced_correction = local_op.partial_trace([site_label]).fold()
+                sites_i = tuple([site.label for site in traced_correction.sites]) 
+                if sites_i in new_rho.terms.keys():
+                    new_rho[sites_i] += traced_correction
+                else:
+                    new_rho[sites_i] = traced_correction
+            else:
+                # Copy the correction term as is
+                if term not in new_rho:
+                    new_rho[term] = local_op.fold()
+                else:
+                    new_rho[term] += local_op.fold()
         return new_rho
+    
+    def fold(self) -> 'RhoMBE':
+        """
+        Fold the MBE representation to ensure all LocalOperators are in standard
+        form (i.e., tensor product form).
+        Returns:
+            RhoMBE: The folded MBE representation.
+        """
+        for term, local_op in self.terms.items():
+            self.terms[term].fold()
+        return self
+    
+    def unfold(self) -> 'RhoMBE':
+        """
+        Unfold the MBE representation to ensure all LocalOperators are in standard
+        form (i.e., tensor product form).
+        Returns:
+            RhoMBE: The folded MBE representation.
+        """
+        for term, local_op in self.terms.items():
+            self.terms[term].unfold()
+        return self

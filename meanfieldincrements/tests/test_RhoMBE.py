@@ -1,36 +1,36 @@
 import pytest
 import numpy as np
+import copy as cp
 from meanfieldincrements import Site, LocalOperator, RhoMBE
 from itertools import combinations
 
-def _rebuild_2site_rdm(rho, nbody=2):
+def _rebuild_2site_rdm(rho):
     sites = rho.sites
-    a = rho.terms[1][(sites[0].label,)].fold().tensor
-    b = rho.terms[1][(sites[1].label,)].fold().tensor
-    ab = rho.terms[2][sites[0].label, sites[1].label].fold().tensor
+    a = rho[(sites[0].label,)].fold().tensor
+    b = rho[(sites[1].label,)].fold().tensor
+    ab = rho[sites[0].label, sites[1].label].fold().tensor
 
     r_rebuilt =  np.einsum('iI,jJ->ijIJ', a, b)
-    if nbody > 1:
-        r_rebuilt += ab 
+    r_rebuilt += ab 
     
 
     return r_rebuilt
 
 def _rebuild_3site_rdm(rho, nbody=3):
     sites = rho.sites
-    a = rho.terms[1][(sites[0].label,)].fold().tensor
-    b = rho.terms[1][(sites[1].label,)].fold().tensor
-    c = rho.terms[1][(sites[2].label,)].fold().tensor
-    ab = rho.terms[2][sites[0].label, sites[1].label].fold().tensor
-    ac = rho.terms[2][sites[0].label, sites[2].label].fold().tensor
-    bc = rho.terms[2][sites[1].label, sites[2].label].fold().tensor
-    abc = rho.terms[3][sites[0].label, sites[1].label, sites[2].label].fold().tensor
+    a = rho.terms[(sites[0].label,)].fold().tensor
+    b = rho.terms[(sites[1].label,)].fold().tensor
+    c = rho.terms[(sites[2].label,)].fold().tensor
+    ab = rho.terms[sites[0].label, sites[1].label].fold().tensor
+    ac = rho.terms[sites[0].label, sites[2].label].fold().tensor
+    bc = rho.terms[sites[1].label, sites[2].label].fold().tensor
 
     r_rebuilt =  np.einsum('iI,jJ,kK->ijkIJK', a, b, c)
     r_rebuilt += np.einsum('ijIJ,kK->ijkIJK', ab, c)
     r_rebuilt += np.einsum('ikIK,jJ->ijkIJK', ac, b)
     r_rebuilt += np.einsum('jkJK,iI->ijkIJK', bc, a)
     if nbody > 2:
+        abc = rho.terms[sites[0].label, sites[1].label, sites[2].label].fold().tensor
         r_rebuilt += abc 
     
     
@@ -38,7 +38,7 @@ def _rebuild_3site_rdm(rho, nbody=3):
 
 # Test functions for the corrected MBE trace operations
 def test_mbe_trace_functions():
-    """Test the MBE trace functions with proper correction terms."""
+    """Test the MBE trace functions with proper correction terms"""
     np.random.seed(42)  # For reproducibility 
     print("Testing MBE trace functions...")
     
@@ -55,40 +55,32 @@ def test_mbe_trace_functions():
     lo = LocalOperator(r_exact, sites)
     print(lo)
 
-    print(f"   Mean-field trace: {rho.trace():.6f}")
     print(f"   Expected: {1.0:.6f}")
     
     print("\n1. Adding 1-body term:")
     for si in sites:
-        env = [s for s in sites if s.label != si.label]
-        rho_i = lo.compute_nbody_marginal([si])
-        rho.terms[1][(si.label,)] = rho_i 
-    
+        rho.terms[(si.label,)] = lo.compute_nbody_marginal([si]) 
+
     # Test 2: Add a 2-body correction
     print("\n2. Adding 2-body correction term:")
 
-    rho.terms[2] = {}
     for (si, sj) in combinations(sites, 2):
         print(f"   Adding correction for sites {si.label} and {sj.label}")
-
-        lambda_ij = lo.compute_2body_cumulant(si, sj)
-        print("     trace of lambda_ij: ", lambda_ij.trace())
-        print("     norm  of lambda_ij: ", np.linalg.norm(lambda_ij.tensor))
-        rho.terms[2][si.label, sj.label] = lambda_ij
+        rij = lo.compute_nbody_marginal([si,sj])
+        rho.terms[(si.label, sj.label)] = rho.compute_2body_cumulant(rij)
     
     
     print("\n3. Adding 3-body correction term:")
-    
-    rho.terms[3] = {}
     for (si, sj, sk) in combinations(sites, 3):
         print(f"   Adding correction for sites %i %i %i " %(si.label, sj.label, sk.label))
+        rijk = lo.compute_nbody_marginal([si,sj,sk])
+        rho.terms[(si.label, sj.label, sk.label)] = rho.compute_3body_cumulant(rijk)
+    
+    
 
-        lambda_ijk = lo.compute_3body_cumulant(si, sj, sk)
-        print("     trace of lambda_ijk: ", lambda_ijk.trace())
-        print("     norm  of lambda_ijk: ", np.linalg.norm(lambda_ijk.tensor))
-        rho.terms[3][si.label, sj.label, sk.label] = lambda_ijk
 
-
+    print("   rho: ")
+    print(rho)
     print("\n4. Rebuilding the density matrix:")
     # Check that we rebuild the 3site rdm 
     r_rebuilt = _rebuild_3site_rdm(rho, nbody=3)
@@ -102,37 +94,41 @@ def test_mbe_trace_functions():
     rho_2 = rho.partial_trace([sites[0].label, sites[1].label])
     rho_01 = rho.partial_trace([sites[2].label])
     rho_02 = rho.partial_trace([sites[1].label])
-    rho_12 = rho.partial_trace([sites[0].label])
 
     r0_ref = lo.partial_trace([sites[1].label, sites[2].label])
     r1_ref = lo.partial_trace([sites[0].label, sites[2].label])
     r2_ref = lo.partial_trace([sites[0].label, sites[1].label])
     r01_ref = lo.partial_trace([sites[2].label])
     r02_ref = lo.partial_trace([sites[1].label])
-    r12_ref = lo.partial_trace([sites[0].label]) 
 
     print(" Trace out site 0,1: ")
-    tst = rho_2.terms[1][(2,)].fold().tensor 
+    tst = rho_2[(2,)].fold().tensor 
+    # tst = np.einsum('ijkijK->kK', lo.tensor)
     ref = r2_ref.fold().tensor
+    # print(tst)
+    # print("ref:")
+    # print(ref)
     print("   shapes: ", ref.shape, " ", tst.shape)
     print("   norm of rho - rho_rebuilt: ", np.linalg.norm(ref - tst))
     np.testing.assert_allclose(ref, tst, atol=1e-10)
     
     print(" Trace out site 0,2: ")
-    tst = rho_1.terms[1][(1,)].fold().tensor 
+    tst = rho_1.terms[(1,)].fold().tensor 
     ref = r1_ref.fold().tensor
     print("   shapes: ", ref.shape, " ", tst.shape)
     print("   norm of rho - rho_rebuilt: ", np.linalg.norm(ref - tst))
     np.testing.assert_allclose(ref, tst, atol=1e-10)
     
     print(" Trace out site 1,2: ")
-    tst = rho_0.terms[1][(0,)].fold().tensor 
+    tst = rho_0.terms[(0,)].fold().tensor 
     ref = r0_ref.fold().tensor
     print("   shapes: ", ref.shape, " ", tst.shape)
     print("   norm of rho - rho_rebuilt: ", np.linalg.norm(ref - tst))
     np.testing.assert_allclose(ref, tst, atol=1e-10)
     
     print(" Trace out site 0: ")
+    rho_12 = rho.partial_trace([sites[0].label])
+    r12_ref = lo.partial_trace([sites[0].label]) 
     tst = _rebuild_2site_rdm(rho_12) 
     ref = r12_ref.fold().tensor
 
