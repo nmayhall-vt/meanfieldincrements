@@ -8,3 +8,8 @@ API Documentation
    meanfieldincrements.LocalOperator
    meanfieldincrements.RhoMBE
    meanfieldincrements.PauliString
+   meanfieldincrements.HilbertSpace
+   meanfieldincrements.SiteOperators
+   meanfieldincrements.PauliHilbertSpace
+   meanfieldincrements.SpinHilbertSpace
+   meanfieldincrements.FermionHilbertSpace
