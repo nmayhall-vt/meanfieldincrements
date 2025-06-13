@@ -22,6 +22,15 @@ from .LocalOperator import LocalOperator
 from .PauliString import PauliString
 from .MBEState import MBEState
 
+# Import GeneralHamiltonian and related utilities (depends on Site, LocalOperator, SiteOperators)
+from .GeneralHamiltonian import (
+    GeneralHamiltonian,
+    # Pre-built Hamiltonian constructors
+    build_heisenberg_hamiltonian,
+    build_ising_hamiltonian,
+    from_pauli_strings
+)
+
 # from .Marginals import Marginal, Cumulant, Marginals, Cumulants 
 
 from ._version import __version__
