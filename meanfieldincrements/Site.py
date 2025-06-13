@@ -1,205 +1,263 @@
-from typing import Union
+"""
+Site class that uses HilbertSpace instead of just dimension.
+Clean version without artificial "compatibility" restrictions.
+"""
+
+from typing import Union, Optional
+from .HilbertSpace import HilbertSpace, PauliHilbertSpace, SpinHilbertSpace, FermionHilbertSpace
+# ↑ These imports are ESSENTIAL and CORRECT - Site needs HilbertSpace classes!
+
 
 class Site:
     """
-    A class representing a lattice site in a physical system.
-
-    Attributes:
-        label (int): The site index or label, uniquely identifying the site.
-        dimension (int): The local Hilbert space dimension at this site, 
-            representing the number of possible states.
-
-    Methods:
-        __init__(label: int, dimension: int):
-            Initializes a Site object with a given label and dimension.
-        __repr__():
-            Returns a string representation of the Site object.
-        __eq__(other):
-            Check equality based on label and dimension.
-        __hash__():
-            Hash function for use in sets and dictionaries.
-        __lt__(other):
-            Less-than comparison for sorting (based on label).
+    Represents a site in a many-body quantum system.
     
-    Examples:
-        >>> site1 = Site(0, 2)  # Qubit at site 0
-        >>> site2 = Site(1, 3)  # Qutrit at site 1
-        >>> sites = [site2, site1]
-        >>> sorted(sites)  # Will sort by label: [site1, site2]
-        >>> {site1, site2}  # Can be used in sets due to __hash__
+    Each site has an associated HilbertSpace that defines the type of
+    quantum system at that location (e.g., qubit, spin-1, fermion, etc.).
+    
+    Attributes:
+        label (int): Unique identifier for this site
+        hilbert_space (HilbertSpace): The Hilbert space for this site
     """
     
-    def __init__(self, label: int, dimension: int):
+    def __init__(self, label: int, hilbert_space_or_dimension: Union[HilbertSpace, int]):
         """
-        Initialize a lattice site.
-
-        Args:
-            label (int): The site index or label, uniquely identifying the site.
-            dimension (int): The local Hilbert space dimension at this site.
-                Must be a positive integer representing the number of possible 
-                quantum states at this site.
-
-        Raises:
-            ValueError: If dimension is not a positive integer.
-            TypeError: If label or dimension cannot be converted to int.
-            
-        Examples:
-            >>> site = Site(0, 2)      # Qubit (2-level system)
-            >>> site = Site(1, 3)      # Qutrit (3-level system) 
-            >>> site = Site("2", "4")  # String inputs auto-converted
-        """
-        try:
-            self.label = int(label)
-            self.dimension = int(dimension)
-        except (ValueError, TypeError) as e:
-            raise TypeError(f"Label and dimension must be convertible to int: {e}")
-        
-        if self.dimension <= 0:
-            raise ValueError("Dimension must be a positive integer.")
-
-    def __repr__(self) -> str:
-        """
-        Return a string representation of the Site object.
-        
-        Returns:
-            str: A string in the format "Site(label=X, dimension=Y)"
-        """
-        return f"Site(label={self.label}, dimension={self.dimension})"
-    
-    def __str__(self) -> str:
-        """
-        Return a user-friendly string representation.
-        
-        Returns:
-            str: A readable string representation.
-        """
-        return f"Site {self.label} (dim={self.dimension})"
-    
-    def __eq__(self, other) -> bool:
-        """
-        Check equality between two Site objects.
-        
-        Two sites are considered equal if they have the same label and dimension.
-        This is important for quantum systems where sites must match exactly.
+        Initialize a Site.
         
         Args:
-            other: Another object to compare with.
-            
-        Returns:
-            bool: True if sites have same label and dimension, False otherwise.
-            
+            label (int): Unique identifier for this site
+            hilbert_space_or_dimension (HilbertSpace or int): Either a HilbertSpace 
+                object or an integer dimension (for backward compatibility)
+        
         Examples:
-            >>> site1 = Site(0, 2)
-            >>> site2 = Site(0, 2)
-            >>> site3 = Site(0, 3)
-            >>> site1 == site2  # True
-            >>> site1 == site3  # False (different dimensions)
+            # New way - specify the type of quantum system
+            >>> Site(0, PauliHilbertSpace(2))       # Qubit site
+            >>> Site(1, SpinHilbertSpace(3))        # Spin-1 site  
+            >>> Site(2, FermionHilbertSpace())      # Fermionic site
+            
+            # Old way - just dimension (creates generic HilbertSpace)
+            >>> Site(0, 2)  # Generic 2-level system
         """
-        if not isinstance(other, Site):
-            return NotImplemented
-        return self.label == other.label and self.dimension == other.dimension
-    
-    def __hash__(self) -> int:
-        """
-        Hash function for Site objects.
+        self.label = label
         
-        Enables Site objects to be used as dictionary keys and in sets.
-        Hash is based on both label and dimension for consistency with __eq__.
+        if isinstance(hilbert_space_or_dimension, HilbertSpace):
+            self.hilbert_space = hilbert_space_or_dimension
+        elif isinstance(hilbert_space_or_dimension, int):
+            # Backward compatibility - create a generic HilbertSpace
+            self.hilbert_space = HilbertSpace(hilbert_space_or_dimension)
+        else:
+            raise TypeError("Expected HilbertSpace or int, got "
+                          f"{type(hilbert_space_or_dimension)}")
+    
+    @property
+    def dimension(self) -> int:
+        """Get the dimension of the Hilbert space at this site."""
+        return self.hilbert_space.dimension
+    
+    @property
+    def name(self) -> str:
+        """Get the name of the Hilbert space at this site."""
+        return self.hilbert_space.name
+    
+    def create_operators(self) -> 'SiteOperators':
+        """
+        Create SiteOperators for this site's Hilbert space.
         
         Returns:
-            int: Hash value based on label and dimension.
-            
-        Examples:
-            >>> sites_dict = {Site(0, 2): "qubit", Site(1, 3): "qutrit"}
-            >>> unique_sites = {Site(0, 2), Site(0, 2), Site(1, 2)}  # Set of 2 sites
-        """
-        return hash((self.label, self.dimension))
-    
-    def __lt__(self, other) -> bool:
-        """
-        Less-than comparison for sorting Site objects.
+            SiteOperators: Operators appropriate for this site's Hilbert space
         
-        Sites are ordered primarily by label, then by dimension if labels are equal.
-        This enables natural sorting of site collections.
-        
-        Args:
-            other (Site): Another Site object to compare with.
-            
-        Returns:
-            bool: True if this site should come before other in sorted order.
-            
-        Raises:
-            TypeError: If other is not a Site object.
-            
-        Examples:
-            >>> sites = [Site(2, 2), Site(0, 3), Site(1, 2)]
-            >>> sorted(sites)  # [Site(0,3), Site(1,2), Site(2,2)]
-            >>> min(sites)     # Site(0,3)
+        Example:
+            >>> site = Site(0, SpinHilbertSpace(2))
+            >>> ops = site.create_operators()
+            >>> print(ops.keys())  # ['I', 'Sx', 'Sy', 'Sz', 'S+', 'S-']
         """
-        if not isinstance(other, Site):
-            return NotImplemented
-        return (self.label, self.dimension) < (other.label, other.dimension)
-    
-    def __le__(self, other) -> bool:
-        """Less-than-or-equal comparison."""
-        if not isinstance(other, Site):
-            return NotImplemented
-        return (self.label, self.dimension) <= (other.label, other.dimension)
-    
-    def __gt__(self, other) -> bool:
-        """Greater-than comparison."""
-        if not isinstance(other, Site):
-            return NotImplemented
-        return (self.label, self.dimension) > (other.label, other.dimension)
-    
-    def __ge__(self, other) -> bool:
-        """Greater-than-or-equal comparison."""
-        if not isinstance(other, Site):
-            return NotImplemented
-        return (self.label, self.dimension) >= (other.label, other.dimension)
+        # Use lazy import to avoid circular dependency
+        from .SiteOperators import SiteOperators
+        return SiteOperators(self.hilbert_space)
     
     def is_qubit(self) -> bool:
-        """
-        Check if this site represents a qubit (2-level system).
-        
-        Returns:
-            bool: True if dimension is 2, False otherwise.
-            
-        Examples:
-            >>> Site(0, 2).is_qubit()  # True
-            >>> Site(1, 3).is_qubit()  # False
-        """
-        return self.dimension == 2
+        """Check if this site represents a qubit (2-level Pauli system)."""
+        return (isinstance(self.hilbert_space, PauliHilbertSpace) and 
+                self.dimension == 2)
     
-    def is_qutrit(self) -> bool:
-        """
-        Check if this site represents a qutrit (3-level system).
-        
-        Returns:
-            bool: True if dimension is 3, False otherwise.
-        """
-        return self.dimension == 3
+    def is_spin(self) -> bool:
+        """Check if this site represents a spin system."""
+        return isinstance(self.hilbert_space, SpinHilbertSpace)
     
-    def compatible_with(self, other: 'Site') -> bool:
+    def is_fermion(self) -> bool:
+        """Check if this site represents a fermionic system."""
+        return isinstance(self.hilbert_space, FermionHilbertSpace)
+    
+    def is_generic(self) -> bool:
+        """Check if this site uses a generic HilbertSpace."""
+        return (type(self.hilbert_space) == HilbertSpace and 
+                not isinstance(self.hilbert_space, (PauliHilbertSpace, SpinHilbertSpace, FermionHilbertSpace)))
+    
+    def get_spin_value(self) -> Optional[float]:
         """
-        Check if this site is compatible with another site for operations.
+        Get the spin value if this is a spin site.
         
-        Sites are compatible if they have the same dimension, regardless of label.
-        This is useful for checking if operations can be performed between sites.
-        
-        Args:
-            other (Site): Another Site object to check compatibility with.
-            
         Returns:
-            bool: True if sites have the same dimension.
-            
-        Examples:
-            >>> site1 = Site(0, 2)
-            >>> site2 = Site(5, 2)  # Different label, same dimension
-            >>> site3 = Site(0, 3)  # Same label, different dimension
-            >>> site1.compatible_with(site2)  # True
-            >>> site1.compatible_with(site3)  # False
+            float or None: The spin value (e.g., 0.5, 1.0) or None if not a spin site
         """
+        if self.is_spin():
+            return self.hilbert_space.j
+        return None
+    
+    def get_pauli_qubits(self) -> Optional[int]:
+        """
+        Get the number of qubits if this is a Pauli site.
+        
+        Returns:
+            int or None: Number of qubits or None if not a Pauli site
+        """
+        if isinstance(self.hilbert_space, PauliHilbertSpace):
+            return self.hilbert_space.n_qubits
+        return None
+    
+    def __repr__(self) -> str:
+        return f"Site(id={self.label}, {self.hilbert_space})"
+    
+    def __str__(self) -> str:
+        return f"Site {self.label}: {self.name} (dim={self.dimension})"
+    
+    def __eq__(self, other) -> bool:
+        """Two sites are equal if they have the same label and HilbertSpace."""
         if not isinstance(other, Site):
-            raise TypeError("Can only check compatibility with another Site")
-        return self.dimension == other.dimension
+            return False
+        return (self.label == other.label and 
+                self.dimension == other.dimension and
+                type(self.hilbert_space) == type(other.hilbert_space))
+    
+    def __hash__(self) -> int:
+        """Hash based on label and dimension for use in sets/dicts."""
+        return hash((self.label, self.dimension))
+
+
+# Convenience factory functions for common site types
+def qubit_site(label: int) -> Site:
+    """Create a qubit (Pauli) site."""
+    return Site(label, PauliHilbertSpace(2))
+
+
+def spin_site(label: int, spin_value: float) -> Site:
+    """Create a spin site with given spin value."""
+    dimension = int(2 * spin_value + 1)
+    return Site(label, SpinHilbertSpace(dimension))
+
+
+def fermion_site(label: int) -> Site:
+    """Create a fermionic site."""
+    return Site(label, FermionHilbertSpace())
+
+
+def multi_qubit_site(label: int, n_qubits: int) -> Site:
+    """Create a site representing n qubits."""
+    dimension = 2 ** n_qubits
+    return Site(label, PauliHilbertSpace(dimension))
+
+
+# Backward compatibility function
+def create_sites(n_sites: int, dimension: int) -> list:
+    """
+    Create a list of sites with the same dimension.
+    
+    Args:
+        n_sites (int): Number of sites to create
+        dimension (int): Dimension for each site
+        
+    Returns:
+        list[Site]: List of sites with consecutive labels starting from 0
+    """
+    return [Site(i, dimension) for i in range(n_sites)]
+
+
+def create_qubit_chain(n_qubits: int) -> list:
+    """
+    Create a chain of qubit sites.
+    
+    Args:
+        n_qubits (int): Number of qubits
+        
+    Returns:
+        list[Site]: List of qubit sites with consecutive labels
+    """
+    return [qubit_site(i) for i in range(n_qubits)]
+
+
+def create_spin_chain(n_sites: int, spin_value: float) -> list:
+    """
+    Create a chain of spin sites.
+    
+    Args:
+        n_sites (int): Number of sites
+        spin_value (float): Spin value (e.g., 0.5, 1.0, 1.5)
+        
+    Returns:
+        list[Site]: List of spin sites with consecutive labels
+    """
+    return [spin_site(i, spin_value) for i in range(n_sites)]
+
+
+def create_fermion_chain(n_sites: int) -> list:
+    """
+    Create a chain of fermionic sites.
+    
+    Args:
+        n_sites (int): Number of sites
+        
+    Returns:
+        list[Site]: List of fermionic sites with consecutive labels
+    """
+    return [fermion_site(i) for i in range(n_sites)]
+
+
+if __name__ == "__main__":
+    # Example usage and testing
+    print("=== Site Class Examples ===")
+    
+    # 1. Create different types of sites
+    print("\n1. Creating different site types:")
+    
+    # New way - specific HilbertSpaces
+    qubit = Site(0, PauliHilbertSpace(2))
+    spin1 = Site(1, SpinHilbertSpace(3))
+    fermion = Site(2, FermionHilbertSpace())
+    
+    print(f"Qubit site: {qubit}")
+    print(f"Spin-1 site: {spin1}")
+    print(f"Fermion site: {fermion}")
+    
+    # Old way - backward compatibility
+    generic = Site(3, 4)  # Generic 4-level system
+    print(f"Generic site: {generic}")
+    
+    # 2. Test site properties
+    print("\n2. Site properties:")
+    print(f"Qubit is_qubit: {qubit.is_qubit()}")
+    print(f"Spin1 is_spin: {spin1.is_spin()}")
+    print(f"Spin1 spin value: {spin1.get_spin_value()}")
+    print(f"Fermion is_fermion: {fermion.is_fermion()}")
+    print(f"Generic is_generic: {generic.is_generic()}")
+    
+    # 3. Create operators for each site
+    print("\n3. Site operators:")
+    qubit_ops = qubit.create_operators()
+    spin_ops = spin1.create_operators()
+    fermion_ops = fermion.create_operators()
+    
+    print(f"Qubit operators: {list(qubit_ops.keys())}")
+    print(f"Spin-1 operators: {list(spin_ops.keys())}")
+    print(f"Fermion operators: {list(fermion_ops.keys())}")
+    
+    # 4. Convenience factory functions
+    print("\n4. Convenience factories:")
+    qubit_chain = create_qubit_chain(3)
+    spin_chain = create_spin_chain(3, 0.5)
+    fermion_chain = create_fermion_chain(2)
+    
+    print(f"Qubit chain: {[f'Site({s.label})' for s in qubit_chain]}")
+    print(f"Spin-1/2 chain: {[f'Site({s.label}, j={s.get_spin_value()})' for s in spin_chain]}")
+    print(f"Fermion chain: {[f'Site({s.label})' for s in fermion_chain]}")
+    
+    print("\n✅ All examples completed successfully!")
