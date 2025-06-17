@@ -3,7 +3,7 @@ import copy as cp
 from .Site import Site
 from typing import List, Union, Optional
 
-class LocalOperator:
+class LocalTensor:
     def __init__(self, tensor: np.ndarray, sites: List[Site], tensor_format: str = 'matrix'):
         """
         Initialize a local operator.
@@ -102,7 +102,7 @@ class LocalOperator:
         """
         return np.trace(self.unfold().tensor)
     
-    def partial_trace(self, traced_sites: List[int]) -> 'LocalOperator':
+    def partial_trace(self, traced_sites: List[int]) -> 'LocalTensor':
         """
         Compute partial trace over specified sites.
         
@@ -161,7 +161,7 @@ class LocalOperator:
 
             einsum_string = ''.join(input_indices) + '->' + ''.join(output_indices)
             reduced_tensor = np.einsum(einsum_string, self.tensor)
-            return LocalOperator(reduced_tensor, kept_sites, tensor_format='tensor')
+            return LocalTensor(reduced_tensor, kept_sites, tensor_format='tensor')
         else:
             raise NotImplementedError("Partial trace for >26 sites not implemented")
 
@@ -185,7 +185,7 @@ class LocalOperator:
         
         env = [s.label for s in self.sites if s not in sites]
         rho_ij = self.partial_trace(env)
-        return LocalOperator(rho_ij.tensor, sites, tensor_format='tensor')
+        return LocalTensor(rho_ij.tensor, sites, tensor_format='tensor')
 
     def compute_2body_cumulant(self, si:Site, sj:Site):
         """
@@ -205,7 +205,7 @@ class LocalOperator:
         rho_i = rho_ij.partial_trace([sj.label]).unfold()
         
         lambda_ij = rho_ij.unfold().tensor - np.kron(rho_i.tensor, rho_j.tensor)
-        return LocalOperator(lambda_ij, [si, sj], tensor_format='matrix')
+        return LocalTensor(lambda_ij, [si, sj], tensor_format='matrix')
 
     def compute_3body_cumulant(self, si:Site, sj:Site, sk:Site):
         """
@@ -236,9 +236,9 @@ class LocalOperator:
         l -= np.einsum('jkJK, iI->ijkIJK', l_jk.tensor, r_i.tensor)
         l -= np.einsum('iI,jJ,kK->ijkIJK', r_i.tensor, r_j.tensor, r_k.tensor)
 
-        return LocalOperator(l, [si, sj, sk], tensor_format='tensor')
+        return LocalTensor(l, [si, sj, sk], tensor_format='tensor')
     
-    def __add__(self, other: 'LocalOperator') -> 'LocalOperator':
+    def __add__(self, other: 'LocalTensor') -> 'LocalTensor':
         """
         Add two LocalOperator instances together.
 
@@ -259,9 +259,9 @@ class LocalOperator:
         #     raise ValueError("Cannot add operators with different tensor formats.")
 
         new_tensor = self.tensor + other.tensor
-        return LocalOperator(new_tensor, self.sites, tensor_format=self._tensor_format)
+        return LocalTensor(new_tensor, self.sites, tensor_format=self._tensor_format)
     
-    def scale(self, scalar: Union[float, complex]) -> 'LocalOperator':
+    def scale(self, scalar: Union[float, complex]) -> 'LocalTensor':
         """
         Scale the operator by a scalar.
 
@@ -272,4 +272,4 @@ class LocalOperator:
             LocalOperator: A new LocalOperator scaled by the given scalar.
         """
         scaled_tensor = self.tensor * scalar
-        return LocalOperator(scaled_tensor, self.sites, tensor_format=self._tensor_format)
+        return LocalTensor(scaled_tensor, self.sites, tensor_format=self._tensor_format)

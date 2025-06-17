@@ -18,7 +18,7 @@ from .Site import (
 )
 
 # Import other core classes (minimal dependencies)
-from .LocalOperator import LocalOperator
+from .LocalTensor import LocalTensor
 from .PauliString import PauliString
 from .MBEState import MBEState
 

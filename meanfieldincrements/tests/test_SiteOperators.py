@@ -5,7 +5,7 @@ Unit tests for SiteOperators class.
 import pytest
 import numpy as np
 from meanfieldincrements import (HilbertSpace, SiteOperators, PauliHilbertSpace, 
-                                SpinHilbertSpace, Site, LocalOperator)
+                                SpinHilbertSpace, Site, LocalTensor)
 
 
 class TestSiteOperators:
@@ -146,15 +146,15 @@ class TestSiteOperators:
         site1 = Site(1, 2)
         
         # Single-site LocalOperators
-        pauli_x = LocalOperator(pauli["X"], [site0])
-        spin_y = LocalOperator(spin["Sy"], [site1])
+        pauli_x = LocalTensor(pauli["X"], [site0])
+        spin_y = LocalTensor(spin["Sy"], [site1])
         
         assert pauli_x.tensor.shape == (2, 2)
         assert spin_y.tensor.shape == (2, 2)
         
         # Two-site operator from kron
         combined = pauli.kron(spin)
-        xy_op = LocalOperator(combined["XSy"], [site0, site1])
+        xy_op = LocalTensor(combined["XSy"], [site0, site1])
         
         assert xy_op.tensor.shape == (4, 4)
         

@@ -294,7 +294,7 @@ class TestSiteIntegrationWithExistingCode:
     
     def test_site_with_localoperator(self):
         """Test that Site works with LocalOperator."""
-        from meanfieldincrements import LocalOperator
+        from meanfieldincrements import LocalTensor
         
         # Create sites with specific HilbertSpaces
         qubit_site_obj = Site(0, PauliHilbertSpace(2))
@@ -305,15 +305,15 @@ class TestSiteIntegrationWithExistingCode:
         spin_ops = spin_site_obj.create_operators()
         
         # Create LocalOperator (single site)
-        x_op = LocalOperator(qubit_ops['X'], [qubit_site_obj])
-        sx_op = LocalOperator(spin_ops['Sx'], [spin_site_obj])
+        x_op = LocalTensor(qubit_ops['X'], [qubit_site_obj])
+        sx_op = LocalTensor(spin_ops['Sx'], [spin_site_obj])
         
         assert x_op.tensor.shape == (2, 2)
         assert sx_op.tensor.shape == (2, 2)
         
         # Create LocalOperator (two sites) - tensor product
         combined_ops = qubit_ops.kron(spin_ops)
-        xsx_op = LocalOperator(combined_ops['XSx'], [qubit_site_obj, spin_site_obj])
+        xsx_op = LocalTensor(combined_ops['XSx'], [qubit_site_obj, spin_site_obj])
         
         assert xsx_op.tensor.shape == (4, 4)
     
@@ -359,11 +359,11 @@ class TestSiteIntegrationWithExistingCode:
         spin_fermion = spin_ops.kron(fermion_ops)
         
         # Should be able to create LocalOperators
-        from meanfieldincrements import LocalOperator
+        from meanfieldincrements import LocalTensor
         
-        qs_op = LocalOperator(qubit_spin['XSx'], [qubit, spin_half])
-        qf_op = LocalOperator(qubit_fermion['Xc'], [qubit, fermion])
-        sf_op = LocalOperator(spin_fermion['Sxc'], [spin_half, fermion])
+        qs_op = LocalTensor(qubit_spin['XSx'], [qubit, spin_half])
+        qf_op = LocalTensor(qubit_fermion['Xc'], [qubit, fermion])
+        sf_op = LocalTensor(spin_fermion['Sxc'], [spin_half, fermion])
         
         assert qs_op.tensor.shape == (4, 4)
         assert qf_op.tensor.shape == (4, 4)

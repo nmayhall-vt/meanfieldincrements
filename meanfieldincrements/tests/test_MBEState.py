@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import copy as cp
-from meanfieldincrements import Site, LocalOperator, MBEState
+from meanfieldincrements import Site, LocalTensor, MBEState
 from itertools import combinations
 
 def _rebuild_2site_rdm(rho):
@@ -52,7 +52,7 @@ def test_mbe_trace_functions():
     r_exact = (r_exact + r_exact.conj().T) / 2  # Ensure Hermitian
     r_exact /= np.trace(r_exact)  # Normalize
     
-    lo = LocalOperator(r_exact, sites)
+    lo = LocalTensor(r_exact, sites)
     print(lo)
 
     print(f"   Expected: {1.0:.6f}")

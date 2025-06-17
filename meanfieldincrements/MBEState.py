@@ -4,7 +4,7 @@ from typing import Union, List, Dict, Set, Tuple, Optional
 from itertools import combinations
 
 from .Site import Site
-from .LocalOperator import LocalOperator
+from .LocalTensor import LocalTensor
 
 class MBEState:
     """
@@ -29,7 +29,7 @@ class MBEState:
     
     def __getitem__(self, key):
         return self.terms[key]
-    def __setitem__(self, key, value:'LocalOperator'):
+    def __setitem__(self, key, value:'LocalTensor'):
         self.terms[key] = value
     def __iter__(self):
         return iter(self.terms.values())
@@ -42,11 +42,11 @@ class MBEState:
         """
         for site in self.sites:
             mat = np.identity(site.dimension) / site.dimension
-            self.terms[(site.label,)] = LocalOperator(mat, [site])
+            self.terms[(site.label,)] = LocalTensor(mat, [site])
         return self
 
     
-    def compute_2body_cumulant(self, rho_ij: LocalOperator) -> LocalOperator:
+    def compute_2body_cumulant(self, rho_ij: LocalTensor) -> LocalTensor:
         """
         Compute the 2-body cumulant (correction term) for a given 2-body density matrix.
         The 2-body cumulant, denoted as λ_{ij}, is calculated as the difference between 
@@ -84,7 +84,7 @@ class MBEState:
         
         return lam_ij 
 
-    def compute_3body_cumulant(self, rho_ijk: LocalOperator) -> LocalOperator:
+    def compute_3body_cumulant(self, rho_ijk: LocalTensor) -> LocalTensor:
         """
         Compute the 3-body cumulant for a given 3-body joint density operator.
         The 3-body cumulant is calculated by subtracting the contributions of 
@@ -143,10 +143,10 @@ class MBEState:
         correction_tensor -= np.einsum('jkJK,iI->ijkIJK', 
                                     lambda_jk.tensor, rho_i.tensor)
         
-        return LocalOperator(correction_tensor, rho_ijk.sites, tensor_format='tensor')
+        return LocalTensor(correction_tensor, rho_ijk.sites, tensor_format='tensor')
 
 
-    def get_marginal_density_matrix(self, site_label: int) -> LocalOperator:
+    def get_marginal_density_matrix(self, site_label: int) -> LocalTensor:
         """
         Get the 1-body marginal density matrix for a specific site.
         
@@ -165,7 +165,7 @@ class MBEState:
                 raise ValueError(f"Site {site_label} not found")
             
             identity = np.eye(site.dimension) / site.dimension
-            return LocalOperator(identity, [site])
+            return LocalTensor(identity, [site])
     
     
     def __str__(self):

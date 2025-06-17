@@ -11,7 +11,7 @@ class TestLocalOperator:
         
         # Create a 3x3 matrix
         matrix = np.random.random((3, 3))
-        op = LocalOperator(matrix.copy(), [site])
+        op = LocalTensor(matrix.copy(), [site])
         
         # Test fold: (3,3) -> (3,3)
         op.fold()
@@ -30,7 +30,7 @@ class TestLocalOperator:
         
         # Create 4x4 matrix (2*2 = 4)
         matrix = np.random.random((4, 4))
-        op = LocalOperator(matrix.copy(), sites)
+        op = LocalTensor(matrix.copy(), sites)
         
         # Test fold: (4,4) -> (2,2,2,2)
         op.fold()
@@ -49,7 +49,7 @@ class TestLocalOperator:
         
         # Create 6x6 matrix (2*3 = 6)
         matrix = np.random.random((6, 6))
-        op = LocalOperator(matrix.copy(), sites)
+        op = LocalTensor(matrix.copy(), sites)
         
         # Test fold: (6,6) -> (2,3,2,3)
         op.fold()
@@ -66,7 +66,7 @@ class TestLocalOperator:
         
         # Create 12x12 matrix (2*2*3 = 12)
         matrix = np.random.random((12, 12))
-        op = LocalOperator(matrix.copy(), sites)
+        op = LocalTensor(matrix.copy(), sites)
         
         # Test fold: (12,12) -> (2,2,3,2,2,3)
         op.fold()
@@ -81,7 +81,7 @@ class TestLocalOperator:
         """Test round-trip: matrix -> fold -> unfold -> matrix."""
         sites = [Site(0, 2), Site(1, 3)]
         matrix = np.random.random((6, 6))
-        op = LocalOperator(matrix.copy(), sites)
+        op = LocalTensor(matrix.copy(), sites)
         
         original_matrix = op.tensor.copy()
         
@@ -96,7 +96,7 @@ class TestLocalOperator:
         sites = [Site(0, 2), Site(1, 3)]
         # Start with tensor form
         tensor = np.random.random((2, 3, 2, 3))
-        op = LocalOperator(tensor.copy(), sites, tensor_format='tensor')
+        op = LocalTensor(tensor.copy(), sites, tensor_format='tensor')
         
         original_tensor = op.tensor.copy()
         
@@ -110,7 +110,7 @@ class TestLocalOperator:
         """Test that methods return self for chaining."""
         sites = [Site(0, 2), Site(1, 2)]
         matrix = np.random.random((4, 4))
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         
         # Test method chaining
         result = op.fold().unfold().fold()
@@ -122,7 +122,7 @@ class TestLocalOperator:
         # Single site identity
         site = Site(0, 2)
         identity_2 = np.eye(2)
-        op = LocalOperator(identity_2, [site])
+        op = LocalTensor(identity_2, [site])
         
         op.fold()
         # Identity matrix should become identity tensor
@@ -134,7 +134,7 @@ class TestLocalOperator:
         # Two site identity
         sites = [Site(0, 2), Site(1, 2)]
         identity_4 = np.eye(4)
-        op2 = LocalOperator(identity_4, sites)
+        op2 = LocalTensor(identity_4, sites)
         
         op2.fold()
         assert op2.tensor.shape == (2, 2, 2, 2)
@@ -149,7 +149,7 @@ class TestLocalOperator:
         
         # Pauli-X matrix
         pauli_x = np.array([[0, 1], [1, 0]], dtype=float)
-        op = LocalOperator(pauli_x.copy(), [site])
+        op = LocalTensor(pauli_x.copy(), [site])
         
         original = op.tensor.copy()
         
@@ -163,7 +163,7 @@ class TestLocalOperator:
         total_dim = 5 * 4
         
         matrix = np.random.random((total_dim, total_dim))
-        op = LocalOperator(matrix.copy(), sites)
+        op = LocalTensor(matrix.copy(), sites)
         
         # Test shapes
         op.fold()
@@ -179,7 +179,7 @@ class TestLocalOperator:
         
         # Create a specific matrix with known values
         matrix = np.arange(16).reshape(4, 4).astype(float)
-        op = LocalOperator(matrix.copy(), sites)
+        op = LocalTensor(matrix.copy(), sites)
         
         # Fold and check specific tensor elements
         op.fold()
@@ -216,7 +216,7 @@ class TestLocalOperator:
         }
         
         for name, matrix in pauli_matrices.items():
-            op = LocalOperator(matrix, [site])
+            op = LocalTensor(matrix, [site])
             matrix_trace = op.trace()
             op.fold()
             tensor_trace = op.trace()
@@ -233,7 +233,7 @@ class TestLocalOperator:
             
             # Random operator
             random_matrix = np.random.random((dim, dim)) + 1j * np.random.random((dim, dim))
-            op = LocalOperator(random_matrix, sites)
+            op = LocalTensor(random_matrix, sites)
             
             # Time matrix trace
             start = time.time()
@@ -256,7 +256,7 @@ class TestLocalOperator:
             sites = [Site(i, i+2) for i in range(n_sites)]
             dim = np.prod([site.dimension for site in sites]) 
             identity = np.eye(dim)
-            op = LocalOperator(identity, sites)
+            op = LocalTensor(identity, sites)
             
             trace_val = op.trace()
             expected = dim

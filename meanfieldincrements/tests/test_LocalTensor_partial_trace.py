@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from meanfieldincrements import Site, LocalOperator
+from meanfieldincrements import Site, LocalTensor
 
 class TestPartialTrace:
     """Comprehensive unit tests for the partial_trace function."""
@@ -9,7 +9,7 @@ class TestPartialTrace:
         """Test partial trace when no sites are traced out (identity operation)."""
         sites = [Site(0, 2), Site(1, 2)]
         matrix = np.random.random((4, 4)) + 1j * np.random.random((4, 4))
-        op = LocalOperator(matrix.copy(), sites)
+        op = LocalTensor(matrix.copy(), sites)
         
         # Partial trace with empty list should return the same operator
         result = op.partial_trace([])
@@ -32,7 +32,7 @@ class TestPartialTrace:
         matrix[0, 0] = 1  # |00⟩⟨00|
         matrix[3, 3] = 1  # |11⟩⟨11|
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         op.fold()  # Convert to tensor form
         
         # Trace out site 1 (second qubit)
@@ -57,7 +57,7 @@ class TestPartialTrace:
         matrix[1, 1] = 1  # |01⟩⟨01|
         matrix[2, 2] = 1  # |10⟩⟨10|
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         op.fold()
         
         # Trace out site 0 (first qubit)
@@ -80,7 +80,7 @@ class TestPartialTrace:
         psi = np.array([1, 0, 0, 1]) / np.sqrt(2)  # |00⟩ + |11⟩
         rho = np.outer(psi, psi.conj())
         
-        op = LocalOperator(rho, sites)
+        op = LocalTensor(rho, sites)
         op.fold()
         
         # Trace out second qubit
@@ -102,7 +102,7 @@ class TestPartialTrace:
         matrix[0, 0] = 1  # |000⟩⟨000|
         matrix[7, 7] = 1  # |111⟩⟨111|
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         op.fold()
         
         # Trace out site 1 (middle qubit)
@@ -127,7 +127,7 @@ class TestPartialTrace:
         matrix = np.random.random((8, 8)) + 1j * np.random.random((8, 8))
         matrix = matrix + matrix.conj().T  # Make Hermitian
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         op.fold()
         
         # Trace out sites 0 and 2, leaving only site 1
@@ -153,7 +153,7 @@ class TestPartialTrace:
         matrix = np.random.random((6, 6)) + 1j * np.random.random((6, 6))
         matrix = matrix + matrix.conj().T  # Make Hermitian
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         op.fold()
         
         # Trace out the qutrit (site 1)
@@ -175,7 +175,7 @@ class TestPartialTrace:
         # Two-qubit identity
         sites = [Site(0, 2), Site(1, 2)]
         identity = np.eye(4)
-        op = LocalOperator(identity, sites)
+        op = LocalTensor(identity, sites)
         op.fold()
         
         # Partial trace of identity should be scaled identity
@@ -192,7 +192,7 @@ class TestPartialTrace:
         matrix = np.random.random((4, 4)) + 1j * np.random.random((4, 4))
         matrix = matrix + matrix.conj().T
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         op.fold()
         
         # Tracing out all sites should give scalar (trace of the operator)
@@ -211,7 +211,7 @@ class TestPartialTrace:
         sites = [Site(0, 2), Site(1, 2)]
         matrix = np.random.random((4, 4)) + 1j * np.random.random((4, 4))
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         # Don't fold - test that partial_trace handles matrix form
         
         result = op.partial_trace([1])
@@ -226,7 +226,7 @@ class TestPartialTrace:
         matrix = np.random.random((12, 12)) + 1j * np.random.random((12, 12))
         matrix = matrix + matrix.conj().T  # Hermitian
         
-        op = LocalOperator(matrix, sites)
+        op = LocalTensor(matrix, sites)
         op.fold()
         original_trace = op.trace()
         
@@ -251,7 +251,7 @@ class TestPartialTrace:
         """Test error handling in partial trace."""
         sites = [Site(0, 2), Site(1, 2)]
         matrix = np.random.random((4, 4))
-        op = LocalOperator(matrix, sites, tensor_format="matrix")
+        op = LocalTensor(matrix, sites, tensor_format="matrix")
         op.fold()
         
         # Test tracing non-existent site
@@ -262,7 +262,7 @@ class TestPartialTrace:
         """Test error handling in partial trace."""
         sites = [Site(0, 2), Site(1, 2), Site(1, 3)]
         matrix = np.random.random((12, 12))
-        op = LocalOperator(matrix, sites, tensor_format="matrix")
+        op = LocalTensor(matrix, sites, tensor_format="matrix")
         op2 = op.compute_nbody_marginal(sites)
         np.testing.assert_array_almost_equal(op.tensor, op2.tensor)
 
