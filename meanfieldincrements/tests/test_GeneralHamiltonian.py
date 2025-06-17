@@ -5,7 +5,7 @@ Comprehensive test suite for GeneralHamiltonian class.
 import pytest
 import numpy as np
 from meanfieldincrements import (
-    Site, LocalOperator, PauliHilbertSpace, SpinHilbertSpace, FermionHilbertSpace,
+    Site, LocalTensor, PauliHilbertSpace, SpinHilbertSpace, FermionHilbertSpace,
     create_qubit_chain, create_spin_chain
 )
 
@@ -90,8 +90,8 @@ class TestGeneralHamiltonianOperators:
         pauli_ops = site.create_operators()
         
         # Test single term
-        x_op = ham.get_local_operator(('X',), [site], pauli_ops)
-        assert isinstance(x_op, LocalOperator)
+        x_op = ham.get_local_tensor(('X',), [site], pauli_ops)
+        assert isinstance(x_op, LocalTensor)
         assert x_op.tensor.shape == (2, 2)
         np.testing.assert_allclose(x_op.tensor, pauli_ops['X'])
         
@@ -112,7 +112,7 @@ class TestGeneralHamiltonianOperators:
         pauli_ops = PauliHilbertSpace(2).create_operators()
         
         # Test individual term
-        xx_op = ham.get_local_operator(('X', 'X'), sites, pauli_ops)
+        xx_op = ham.get_local_tensor(('X', 'X'), sites, pauli_ops)
         assert xx_op.tensor.shape == (4, 4)
         
         # Test full matrix
@@ -138,7 +138,7 @@ class TestGeneralHamiltonianOperators:
         ]
         
         # Should work with different libraries
-        mixed_op = ham.get_local_operator(('X', 'Sx'), sites, libraries)
+        mixed_op = ham.get_local_tensor(('X', 'Sx'), sites, libraries)
         assert mixed_op.tensor.shape == (4, 4)
         
         H_matrix = ham.to_matrix(sites, libraries)
@@ -354,20 +354,20 @@ class TestPrebuiltHamiltonians:
 class TestGeneralHamiltonianIntegration:
     
     def test_integration_with_localoperator(self):
-        """Test integration with LocalOperator class."""
+        """Test integration with LocalTensor class."""
         ham = GeneralHamiltonian({('X', 'Y'): 1.0, ('Z', 'Z'): 0.5})
         sites = create_qubit_chain(2)
         pauli_ops = PauliHilbertSpace(2).create_operators()
         
-        # Convert to LocalOperators
-        local_ops = ham.to_local_operators(sites, pauli_ops)
+        # Convert to LocalTensors
+        local_ops = ham.to_local_tensors(sites, pauli_ops)
         
         assert len(local_ops) == 2
         for local_op in local_ops:
-            assert isinstance(local_op, LocalOperator)
+            assert isinstance(local_op, LocalTensor)
             assert local_op.tensor.shape == (4, 4)
         
-        # Test that sum of LocalOperators equals full matrix
+        # Test that sum of LocalTensors equals full matrix
         total_matrix = sum(op.unfold().tensor for op in local_ops)
         ham_matrix = ham.to_matrix(sites, pauli_ops)
         np.testing.assert_allclose(total_matrix, ham_matrix)

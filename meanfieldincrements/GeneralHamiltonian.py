@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Union, Optional
 from itertools import combinations
 
 from .Site import Site
-from .LocalOperator import LocalOperator
+from .LocalTensor import LocalTensor
 from .SiteOperators import SiteOperators
 
 
@@ -104,12 +104,12 @@ class GeneralHamiltonian:
             operator_strings = tuple(operator_strings)
         return self.terms.get(operator_strings, 0.0)
     
-    def get_local_operator(self, 
+    def get_local_tensor(self, 
                           operator_strings: Tuple[str, ...], 
                           sites: List[Site],
-                          operator_libraries: Union[SiteOperators, List[SiteOperators]]) -> LocalOperator:
+                          operator_libraries: Union[SiteOperators, List[SiteOperators]]) -> LocalTensor:
         """
-        Convert an operator string to a LocalOperator using provided operator libraries.
+        Convert an operator string to a LocalTensor using provided operator libraries.
         
         Args:
             operator_strings (tuple): Tuple of operator labels
@@ -118,12 +118,12 @@ class GeneralHamiltonian:
                 instance (same for all sites) or a list of SiteOperators (one per site)
                 
         Returns:
-            LocalOperator: The resulting tensor product operator
+            LocalTensor: The resulting tensor product operator
             
         Example:
             >>> pauli_ops = PauliHilbertSpace(2).create_operators()
             >>> sites = [Site(0, 2), Site(1, 2)]
-            >>> local_op = ham.get_local_operator(('X', 'Y'), sites, pauli_ops)
+            >>> local_op = ham.get_local_tensor(('X', 'Y'), sites, pauli_ops)
         """
         if not isinstance(operator_strings, tuple):
             operator_strings = tuple(operator_strings)
@@ -148,7 +148,7 @@ class GeneralHamiltonian:
             if op_label not in libraries[0]:
                 raise KeyError(f"Operator '{op_label}' not found in operator library")
             matrix = libraries[0][op_label]
-            return LocalOperator(matrix, sites)
+            return LocalTensor(matrix, sites)
         else:
             # Multi-site case - use kron products
             combined_ops = libraries[0]
@@ -162,7 +162,7 @@ class GeneralHamiltonian:
                              f"Individual operators: {operator_strings}")
             
             matrix = combined_ops[op_name]
-            return LocalOperator(matrix, sites)
+            return LocalTensor(matrix, sites)
     
     def get_term_matrix(self,
                        operator_strings: Tuple[str, ...],
@@ -179,7 +179,7 @@ class GeneralHamiltonian:
         Returns:
             np.ndarray: Matrix representation of the operator tensor product
         """
-        local_op = self.get_local_operator(operator_strings, sites, operator_libraries)
+        local_op = self.get_local_tensor(operator_strings, sites, operator_libraries)
         return local_op.unfold().tensor
     
     def to_matrix(self, 
@@ -217,22 +217,22 @@ class GeneralHamiltonian:
         
         return result
     
-    def to_local_operators(self,
+    def to_local_tensors(self,
                           sites: List[Site],
-                          operator_libraries: Union[SiteOperators, List[SiteOperators]]) -> List[LocalOperator]:
+                          operator_libraries: Union[SiteOperators, List[SiteOperators]]) -> List[LocalTensor]:
         """
-        Convert all terms to LocalOperator instances.
+        Convert all terms to LocalTensor instances.
         
         Args:
             sites (list): List of Site objects
             operator_libraries: Operator libraries
             
         Returns:
-            list: List of (coefficient, LocalOperator) tuples
+            list: List of (coefficient, LocalTensor) tuples
         """
         result = []
         for op_strings, coeff in self.terms.items():
-            local_op = self.get_local_operator(op_strings, sites, operator_libraries)
+            local_op = self.get_local_tensor(op_strings, sites, operator_libraries)
             # Scale by coefficient
             scaled_op = local_op.scale(coeff)
             result.append(scaled_op)
