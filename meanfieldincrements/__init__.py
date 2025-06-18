@@ -28,9 +28,8 @@ from .GeneralHamiltonian import (
     # Pre-built Hamiltonian constructors
     build_heisenberg_hamiltonian,
     build_ising_hamiltonian,
-    from_pauli_strings
 )
 
-# from .Marginals import Marginal, Cumulant, Marginals, Cumulants 
+from .Marginal import Marginal
 
 from ._version import __version__

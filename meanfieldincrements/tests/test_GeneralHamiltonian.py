@@ -1,17 +1,17 @@
 """
-Comprehensive test suite for GeneralHamiltonian class.
+Test suite for simplified GeneralHamiltonian class.
 """
 
 import pytest
 import numpy as np
 from meanfieldincrements import (
-    Site, LocalTensor, PauliHilbertSpace, SpinHilbertSpace, FermionHilbertSpace,
+    Site, PauliHilbertSpace, SpinHilbertSpace, 
     create_qubit_chain, create_spin_chain
 )
 
-# Import the GeneralHamiltonian classes from meanfieldincrements package
+# Import the simplified GeneralHamiltonian classes
 from meanfieldincrements import (
-    GeneralHamiltonian, build_heisenberg_hamiltonian, build_ising_hamiltonian, from_pauli_strings
+    GeneralHamiltonian, build_heisenberg_hamiltonian, build_ising_hamiltonian
 )
 
 
@@ -19,104 +19,106 @@ class TestGeneralHamiltonianBasics:
     
     def test_empty_hamiltonian(self):
         """Test empty Hamiltonian construction."""
-        ham = GeneralHamiltonian()
-        assert ham.n_sites == 0
-        assert ham.n_terms == 0
+        sites = create_qubit_chain(2)
+        ham = GeneralHamiltonian(sites)
+        
+        assert len(ham.sites) == 2
+        assert len(ham) == 0
         assert len(ham.terms) == 0
     
     def test_hamiltonian_with_terms(self):
         """Test Hamiltonian construction with initial terms."""
+        sites = create_qubit_chain(2)
         terms = {
             ('X', 'Y'): 0.5,
             ('Z', 'Z'): -0.3,
             ('I', 'X'): 0.1
         }
-        ham = GeneralHamiltonian(terms)
+        ham = GeneralHamiltonian(sites, terms)
         
-        assert ham.n_sites == 2
-        assert ham.n_terms == 3
-        assert ham.get_coefficient(('X', 'Y')) == 0.5
-        assert ham.get_coefficient(('Z', 'Z')) == -0.3
-        assert ham.get_coefficient(('I', 'X')) == 0.1
+        assert len(ham.sites) == 2
+        assert len(ham) == 3
+        assert ham[('X', 'Y')] == 0.5
+        assert ham[('Z', 'Z')] == -0.3
+        assert ham[('I', 'X')] == 0.1
     
-    def test_add_term(self):
-        """Test adding terms to Hamiltonian."""
-        ham = GeneralHamiltonian()
+    def test_setitem_getitem(self):
+        """Test dictionary-like interface."""
+        sites = create_qubit_chain(2)
+        ham = GeneralHamiltonian(sites)
         
-        # Add first term
-        ham.add_term(('X', 'Y'), 0.5)
-        assert ham.n_sites == 2
-        assert ham.n_terms == 1
+        # Add terms using setitem
+        ham[('X', 'Y')] = 0.5
+        ham[('Z', 'Z')] = -0.3
         
-        # Add second term
-        ham.add_term(('Z', 'Z'), -0.3)
-        assert ham.n_terms == 2
+        # Test getitem
+        assert ham[('X', 'Y')] == 0.5
+        assert ham[('Z', 'Z')] == -0.3
+        assert len(ham) == 2
         
-        # Add to existing term (should sum coefficients)
-        ham.add_term(('X', 'Y'), 0.2)
-        assert ham.get_coefficient(('X', 'Y')) == 0.7
-        assert ham.n_terms == 2  # Still 2 unique terms
+        # Test contains
+        assert ('X', 'Y') in ham
+        assert ('I', 'I') not in ham
+        
+        # Update existing term
+        ham[('X', 'Y')] = 0.7
+        assert ham[('X', 'Y')] == 0.7
+        assert len(ham) == 2  # Still 2 terms
     
     def test_validation_errors(self):
         """Test validation errors for inconsistent terms."""
-        ham = GeneralHamiltonian()
-        ham.add_term(('X', 'Y'), 0.5)  # 2-site term
+        sites = create_qubit_chain(2)
+        ham = GeneralHamiltonian(sites)
         
-        # Try to add 3-site term to 2-site Hamiltonian
+        # Wrong number of operators
         with pytest.raises(ValueError):
-            ham.add_term(('X', 'Y', 'Z'), 0.3)
+            ham[('X', 'Y', 'Z')] = 0.5  # 3 operators for 2 sites
+        
+        # Wrong key type
+        with pytest.raises(TypeError):
+            ham['X'] = 0.5  # String instead of tuple
     
-    def test_remove_term(self):
-        """Test removing terms."""
+    def test_iterator(self):
+        """Test iteration over coefficients."""
+        sites = create_qubit_chain(2)
         terms = {('X', 'Y'): 0.5, ('Z', 'Z'): -0.3}
-        ham = GeneralHamiltonian(terms)
+        ham = GeneralHamiltonian(sites, terms)
         
-        ham.remove_term(('X', 'Y'))
-        assert ham.n_terms == 1
-        assert ham.get_coefficient(('X', 'Y')) == 0.0
-        
-        # Try to remove non-existent term
-        with pytest.raises(KeyError):
-            ham.remove_term(('I', 'I'))
+        coeffs = list(ham)
+        assert set(coeffs) == {0.5, -0.3}
 
 
 class TestGeneralHamiltonianOperators:
     
     def test_single_site_operators(self):
         """Test single-site operator conversion."""
-        ham = GeneralHamiltonian({('X',): 0.5, ('Y',): -0.3})
+        sites = [Site(0, PauliHilbertSpace(2))]
+        terms = {('X',): 0.5, ('Y',): -0.3}
+        ham = GeneralHamiltonian(sites, terms)
         
-        site = Site(0, PauliHilbertSpace(2))
-        pauli_ops = site.create_operators()
+        pauli_ops = sites[0].create_operators()
+        site_ops = {PauliHilbertSpace: pauli_ops}
         
-        # Test single term
-        x_op = ham.get_local_tensor(('X',), [site], pauli_ops)
-        assert isinstance(x_op, LocalTensor)
-        assert x_op.tensor.shape == (2, 2)
-        np.testing.assert_allclose(x_op.tensor, pauli_ops['X'])
-        
-        # Test full matrix
-        H_matrix = ham.to_matrix([site], pauli_ops)
+        # Test matrix
+        H_matrix = ham.matrix(site_ops)
         expected = 0.5 * pauli_ops['X'] + (-0.3) * pauli_ops['Y']
         np.testing.assert_allclose(H_matrix, expected)
     
     def test_two_site_operators(self):
         """Test two-site operator conversion."""
-        ham = GeneralHamiltonian({
+        sites = create_qubit_chain(2)
+        terms = {
             ('X', 'X'): 1.0,
             ('Y', 'Y'): 1.0,
             ('Z', 'Z'): 1.0
-        })
+        }
+        ham = GeneralHamiltonian(sites, terms)
         
-        sites = create_qubit_chain(2)
         pauli_ops = PauliHilbertSpace(2).create_operators()
-        
-        # Test individual term
-        xx_op = ham.get_local_tensor(('X', 'X'), sites, pauli_ops)
-        assert xx_op.tensor.shape == (4, 4)
+        site_ops = {PauliHilbertSpace: pauli_ops}
         
         # Test full matrix
-        H_matrix = ham.to_matrix(sites, pauli_ops)
+        H_matrix = ham.matrix(site_ops)
         
         # Compare with manual construction
         two_site_ops = pauli_ops.kron(pauli_ops)
@@ -125,322 +127,276 @@ class TestGeneralHamiltonianOperators:
     
     def test_different_operator_libraries(self):
         """Test with different operator libraries per site."""
-        ham = GeneralHamiltonian({('X', 'Sx'): 1.0})
-        
         sites = [
             Site(0, PauliHilbertSpace(2)),  # Pauli site
             Site(1, SpinHilbertSpace(2))    # Spin site
         ]
+        terms = {('X', 'Sx'): 1.0}
+        ham = GeneralHamiltonian(sites, terms)
         
-        libraries = [
-            sites[0].create_operators(),  # Pauli operators
-            sites[1].create_operators()   # Spin operators
-        ]
+        site_ops = {
+            PauliHilbertSpace: sites[0].create_operators(),
+            SpinHilbertSpace: sites[1].create_operators()
+        }
         
         # Should work with different libraries
-        mixed_op = ham.get_local_tensor(('X', 'Sx'), sites, libraries)
-        assert mixed_op.tensor.shape == (4, 4)
-        
-        H_matrix = ham.to_matrix(sites, libraries)
+        H_matrix = ham.matrix(site_ops)
         assert H_matrix.shape == (4, 4)
     
     def test_three_site_operators(self):
         """Test three-site operator construction."""
-        ham = GeneralHamiltonian({
+        sites = create_qubit_chain(3)
+        terms = {
             ('X', 'Y', 'Z'): 0.5,
             ('I', 'I', 'I'): 1.0
-        })
+        }
+        ham = GeneralHamiltonian(sites, terms)
         
-        sites = create_qubit_chain(3)
         pauli_ops = PauliHilbertSpace(2).create_operators()
+        site_ops = {PauliHilbertSpace: pauli_ops}
         
-        H_matrix = ham.to_matrix(sites, pauli_ops)
+        H_matrix = ham.matrix(site_ops)
         assert H_matrix.shape == (8, 8)
         
         # Check identity term gives identity matrix
-        identity_term = GeneralHamiltonian({('I', 'I', 'I'): 1.0})
-        I_matrix = identity_term.to_matrix(sites, pauli_ops)
+        identity_ham = GeneralHamiltonian(sites, {('I', 'I', 'I'): 1.0})
+        I_matrix = identity_ham.matrix(site_ops)
         np.testing.assert_allclose(I_matrix, np.eye(8))
+    
+    def test_empty_hamiltonian_matrix(self):
+        """Test matrix of empty Hamiltonian."""
+        sites = create_qubit_chain(2)
+        ham = GeneralHamiltonian(sites)  # Empty
+        
+        pauli_ops = PauliHilbertSpace(2).create_operators()
+        site_ops = {PauliHilbertSpace: pauli_ops}
+        
+        H_matrix = ham.matrix(site_ops)
+        expected = np.zeros((4, 4))
+        np.testing.assert_allclose(H_matrix, expected)
 
 
 class TestGeneralHamiltonianOperations:
     
     def test_addition(self):
         """Test Hamiltonian addition."""
-        ham1 = GeneralHamiltonian({('X', 'X'): 1.0, ('Y', 'Y'): 0.5})
-        ham2 = GeneralHamiltonian({('X', 'X'): 0.5, ('Z', 'Z'): -0.3})
+        sites = create_qubit_chain(2)
+        
+        ham1 = GeneralHamiltonian(sites, {('X', 'X'): 1.0, ('Y', 'Y'): 0.5})
+        ham2 = GeneralHamiltonian(sites, {('X', 'X'): 0.5, ('Z', 'Z'): -0.3})
         
         ham_sum = ham1 + ham2
         
-        assert ham_sum.get_coefficient(('X', 'X')) == 1.5  # 1.0 + 0.5
-        assert ham_sum.get_coefficient(('Y', 'Y')) == 0.5
-        assert ham_sum.get_coefficient(('Z', 'Z')) == -0.3
-        assert ham_sum.n_terms == 3
+        assert ham_sum[('X', 'X')] == 1.5  # 1.0 + 0.5
+        assert ham_sum[('Y', 'Y')] == 0.5
+        assert ham_sum[('Z', 'Z')] == -0.3
+        assert len(ham_sum) == 3
     
     def test_scalar_multiplication(self):
         """Test scalar multiplication."""
-        ham = GeneralHamiltonian({('X', 'X'): 1.0, ('Y', 'Y'): 0.5})
+        sites = create_qubit_chain(2)
+        ham = GeneralHamiltonian(sites, {('X', 'X'): 1.0, ('Y', 'Y'): 0.5})
         
         ham_scaled = 2.0 * ham
-        assert ham_scaled.get_coefficient(('X', 'X')) == 2.0
-        assert ham_scaled.get_coefficient(('Y', 'Y')) == 1.0
+        assert ham_scaled[('X', 'X')] == 2.0
+        assert ham_scaled[('Y', 'Y')] == 1.0
         
         ham_scaled2 = ham * (-1.0)
-        assert ham_scaled2.get_coefficient(('X', 'X')) == -1.0
-        assert ham_scaled2.get_coefficient(('Y', 'Y')) == -0.5
+        assert ham_scaled2[('X', 'X')] == -1.0
+        assert ham_scaled2[('Y', 'Y')] == -0.5
     
     def test_complex_coefficients(self):
         """Test complex coefficient operations."""
-        ham = GeneralHamiltonian({('X', 'Y'): 1.0 + 2.0j, ('Z', 'Z'): -0.5j})
+        sites = create_qubit_chain(2)
+        ham = GeneralHamiltonian(sites, {('X', 'Y'): 1.0 + 2.0j, ('Z', 'Z'): -0.5j})
         
-        ham_conj = ham.conjugate()
-        assert ham_conj.get_coefficient(('X', 'Y')) == 1.0 - 2.0j
-        assert ham_conj.get_coefficient(('Z', 'Z')) == 0.5j
+        ham_scaled = 1j * ham
+        assert ham_scaled[('X', 'Y')] == 1j * (1.0 + 2.0j)
+        assert ham_scaled[('Z', 'Z')] == 1j * (-0.5j)
     
     def test_subtraction(self):
         """Test Hamiltonian subtraction."""
-        ham1 = GeneralHamiltonian({('X', 'X'): 1.0, ('Y', 'Y'): 0.5})
-        ham2 = GeneralHamiltonian({('X', 'X'): 0.3, ('Z', 'Z'): 0.2})
+        sites = create_qubit_chain(2)
+        
+        ham1 = GeneralHamiltonian(sites, {('X', 'X'): 1.0, ('Y', 'Y'): 0.5})
+        ham2 = GeneralHamiltonian(sites, {('X', 'X'): 0.3, ('Z', 'Z'): 0.2})
         
         ham_diff = ham1 - ham2
-        assert ham_diff.get_coefficient(('X', 'X')) == 0.7
-        assert ham_diff.get_coefficient(('Y', 'Y')) == 0.5
-        assert ham_diff.get_coefficient(('Z', 'Z')) == -0.2
-
-
-class TestGeneralHamiltonianAnalysis:
+        assert abs(ham_diff[('X', 'X')] - 0.7) < 1e-10
+        assert ham_diff[('Y', 'Y')] == 0.5
+        assert ham_diff[('Z', 'Z')] == -0.2
     
-    def test_expectation_value(self):
-        """Test expectation value calculation."""
-        # Simple Z operator on single qubit
-        ham = GeneralHamiltonian({('Z',): 1.0})
-        site = Site(0, PauliHilbertSpace(2))
-        pauli_ops = site.create_operators()
+    def test_addition_errors(self):
+        """Test error handling in addition."""
+        sites1 = create_qubit_chain(2)
+        sites2 = create_qubit_chain(3)  # Different number of sites
         
-        # |0⟩ state (eigenstate of Z with eigenvalue +1)
-        state_0 = np.array([1, 0])
-        exp_val = ham.get_expectation_value(state_0, [site], pauli_ops)
-        assert np.isclose(exp_val, 1.0)
+        ham1 = GeneralHamiltonian(sites1, {('X', 'X'): 1.0})
+        ham2 = GeneralHamiltonian(sites2, {('X', 'X', 'X'): 1.0})
         
-        # |1⟩ state (eigenstate of Z with eigenvalue -1)
-        state_1 = np.array([0, 1])
-        exp_val = ham.get_expectation_value(state_1, [site], pauli_ops)
-        assert np.isclose(exp_val, -1.0)
+        # Different number of sites
+        with pytest.raises(ValueError):
+            ham1 + ham2
         
-        # |+⟩ = (|0⟩ + |1⟩)/√2 state
-        state_plus = np.array([1, 1]) / np.sqrt(2)
-        exp_val = ham.get_expectation_value(state_plus, [site], pauli_ops)
-        assert np.isclose(exp_val, 0.0)
-    
-    def test_is_hermitian(self):
-        """Test Hermiticity checking."""
-        # Real coefficients should be Hermitian
-        ham_real = GeneralHamiltonian({('X', 'X'): 1.0, ('Y', 'Y'): 0.5, ('Z', 'Z'): -0.3})
-        sites = create_qubit_chain(2)
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        
-        assert ham_real.is_hermitian(sites, pauli_ops)
-        
-        # Complex coefficients - not Hermitian
-        ham_complex = GeneralHamiltonian({('X', 'Y'): 1.0j})
-        assert not ham_complex.is_hermitian(sites, pauli_ops)
-    
-    def test_filter_terms(self):
-        """Test term filtering."""
-        ham = GeneralHamiltonian({
-            ('X', 'X'): 1.0,
-            ('Y', 'Y'): 0.5,
-            ('Z', 'Z'): 1e-15,  # Very small
-            ('I', 'X'): 0.3
-        })
-        
-        # Filter out small terms
-        ham_filtered = ham.filter_terms(lambda op_str, coeff: abs(coeff) > 1e-10)
-        assert ham_filtered.n_terms == 3  # Should remove the 1e-15 term
-        assert ham_filtered.get_coefficient(('Z', 'Z')) == 0.0
-        
-        # Test simplify method
-        ham_simple = ham.simplify(rtol=1e-10)
-        assert ham_simple.n_terms == 3
-    
-    def test_get_terms_by_weight(self):
-        """Test filtering by number of non-identity operators."""
-        ham = GeneralHamiltonian({
-            ('I', 'I', 'I'): 1.0,    # 0-body
-            ('X', 'I', 'I'): 0.5,    # 1-body
-            ('I', 'Y', 'I'): 0.3,    # 1-body
-            ('X', 'X', 'I'): 0.2,    # 2-body
-            ('X', 'Y', 'Z'): 0.1     # 3-body
-        })
-        
-        # Test 1-body terms
-        one_body = ham.get_terms_by_weight(1)
-        assert one_body.n_terms == 2
-        assert one_body.get_coefficient(('X', 'I', 'I')) == 0.5
-        assert one_body.get_coefficient(('I', 'Y', 'I')) == 0.3
-        
-        # Test 2-body terms
-        two_body = ham.get_terms_by_weight(2)
-        assert two_body.n_terms == 1
-        assert two_body.get_coefficient(('X', 'X', 'I')) == 0.2
-        
-        # Test 0-body terms
-        zero_body = ham.get_terms_by_weight(0)
-        assert zero_body.n_terms == 1
-        assert zero_body.get_coefficient(('I', 'I', 'I')) == 1.0
+        # Wrong type
+        with pytest.raises(TypeError):
+            ham1 + 5.0
 
 
 class TestPrebuiltHamiltonians:
     
     def test_heisenberg_hamiltonian(self):
         """Test Heisenberg model construction."""
-        n_sites = 3
+        sites = create_qubit_chain(3)
         J = 1.0
-        ham = build_heisenberg_hamiltonian(n_sites, J, periodic=False)
+        ham = build_heisenberg_hamiltonian(sites, J, periodic=False)
         
         # Should have 3 * (n_sites - 1) = 6 terms for linear chain
-        expected_terms = 3 * (n_sites - 1)  # XX, YY, ZZ for each bond
-        assert ham.n_terms == expected_terms
-        assert ham.n_sites == n_sites
+        expected_terms = 3 * (len(sites) - 1)  # XX, YY, ZZ for each bond
+        assert len(ham) == expected_terms
+        assert len(ham.sites) == len(sites)
         
         # Check specific terms exist
-        assert ham.get_coefficient(('X', 'X', 'I')) == J  # Sites 0-1
-        assert ham.get_coefficient(('Y', 'Y', 'I')) == J
-        assert ham.get_coefficient(('Z', 'Z', 'I')) == J
-        assert ham.get_coefficient(('I', 'X', 'X')) == J  # Sites 1-2
+        assert ham[('X', 'X', 'I')] == J  # Sites 0-1
+        assert ham[('Y', 'Y', 'I')] == J
+        assert ham[('Z', 'Z', 'I')] == J
+        assert ham[('I', 'X', 'X')] == J  # Sites 1-2
         
         # Test with periodic boundary conditions
-        ham_pbc = build_heisenberg_hamiltonian(n_sites, J, periodic=True)
-        expected_terms_pbc = 3 * n_sites  # Include wraparound terms
-        assert ham_pbc.n_terms == expected_terms_pbc
+        ham_pbc = build_heisenberg_hamiltonian(sites, J, periodic=True)
+        expected_terms_pbc = 3 * len(sites)  # Include wraparound terms
+        assert len(ham_pbc) == expected_terms_pbc
         
         # Check wraparound terms
-        assert ham_pbc.get_coefficient(('X', 'I', 'X')) == J  # Sites 0-2
+        assert ham_pbc[('X', 'I', 'X')] == J  # Sites 0-2
     
     def test_ising_hamiltonian(self):
         """Test Ising model construction."""
-        n_sites = 3
+        sites = create_qubit_chain(3)
         J = 1.0
         h = 0.5
-        ham = build_ising_hamiltonian(n_sites, J, h, periodic=False)
+        ham = build_ising_hamiltonian(sites, J, h, periodic=False)
         
         # Should have (n_sites - 1) ZZ terms + n_sites X terms
-        expected_terms = (n_sites - 1) + n_sites
-        assert ham.n_terms == expected_terms
+        expected_terms = (len(sites) - 1) + len(sites)
+        assert len(ham) == expected_terms
         
         # Check ZZ coupling terms
-        assert ham.get_coefficient(('Z', 'Z', 'I')) == -J
-        assert ham.get_coefficient(('I', 'Z', 'Z')) == -J
+        assert ham[('Z', 'Z', 'I')] == -J
+        assert ham[('I', 'Z', 'Z')] == -J
         
         # Check transverse field terms
-        assert ham.get_coefficient(('X', 'I', 'I')) == -h
-        assert ham.get_coefficient(('I', 'X', 'I')) == -h
-        assert ham.get_coefficient(('I', 'I', 'X')) == -h
+        assert ham[('X', 'I', 'I')] == -h
+        assert ham[('I', 'X', 'I')] == -h
+        assert ham[('I', 'I', 'X')] == -h
     
-    def test_from_pauli_strings(self):
-        """Test construction from Pauli strings."""
-        pauli_strings = ['XYZ', 'IXI', 'ZZI']
-        coefficients = [0.5, -0.3, 0.1]
-        
-        ham = from_pauli_strings(pauli_strings, coefficients)
-        
-        assert ham.n_terms == 3
-        assert ham.n_sites == 3
-        assert ham.get_coefficient(('X', 'Y', 'Z')) == 0.5
-        assert ham.get_coefficient(('I', 'X', 'I')) == -0.3
-        assert ham.get_coefficient(('Z', 'Z', 'I')) == 0.1
-
-
-class TestGeneralHamiltonianIntegration:
-    
-    def test_integration_with_localoperator(self):
-        """Test integration with LocalTensor class."""
-        ham = GeneralHamiltonian({('X', 'Y'): 1.0, ('Z', 'Z'): 0.5})
-        sites = create_qubit_chain(2)
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        
-        # Convert to LocalTensors
-        local_ops = ham.to_local_tensors(sites, pauli_ops)
-        
-        assert len(local_ops) == 2
-        for local_op in local_ops:
-            assert isinstance(local_op, LocalTensor)
-            assert local_op.tensor.shape == (4, 4)
-        
-        # Test that sum of LocalTensors equals full matrix
-        total_matrix = sum(op.unfold().tensor for op in local_ops)
-        ham_matrix = ham.to_matrix(sites, pauli_ops)
-        np.testing.assert_allclose(total_matrix, ham_matrix)
-    
-    def test_mixed_site_types(self):
-        """Test with different types of sites."""
-        # Create Hamiltonian for mixed system
-        ham = GeneralHamiltonian({
-            ('X', 'Sx'): 1.0,     # Pauli-Spin interaction
-            ('Z', 'Sz'): 0.5      # Pauli-Spin interaction
-        })
-        
+    def test_build_with_different_sites(self):
+        """Test building Hamiltonians with different site types."""
+        # Mixed sites
         sites = [
-            Site(0, PauliHilbertSpace(2)),  # Qubit
-            Site(1, SpinHilbertSpace(2))    # Spin-1/2
+            Site(0, PauliHilbertSpace(2)),
+            Site(1, SpinHilbertSpace(2))
         ]
         
-        libraries = [
-            sites[0].create_operators(),
-            sites[1].create_operators()
-        ]
-        
-        # Should work even with different operator libraries
-        H_matrix = ham.to_matrix(sites, libraries)
-        assert H_matrix.shape == (4, 4)
-        
-        # Test expectation value
-        random_state = np.random.random(4) + 1j * np.random.random(4)
-        random_state /= np.linalg.norm(random_state)
-        
-        exp_val = ham.get_expectation_value(random_state, sites, libraries)
-        print("nick")
-        print(type(exp_val))
-        assert isinstance(exp_val, (float, complex))
-    
-    def test_large_system_performance(self):
-        """Test performance with larger systems."""
-        # 4-qubit system
-        n_sites = 4
-        ham = build_heisenberg_hamiltonian(n_sites, 1.0, periodic=True)
-        sites = create_qubit_chain(n_sites)
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        
-        # Should handle 2^4 = 16 dimensional Hilbert space
-        H_matrix = ham.to_matrix(sites, pauli_ops)
-        assert H_matrix.shape == (16, 16)
-        
-        # Check Hermiticity
-        assert ham.is_hermitian(sites, pauli_ops)
+        # Should work even with different site types
+        ham = build_heisenberg_hamiltonian(sites, 1.0, periodic=False)
+        assert len(ham) == 3  # XX, YY, ZZ terms
+        assert len(ham.sites) == 2
 
 
 class TestGeneralHamiltonianStringRepresentation:
     
     def test_string_representation(self):
         """Test string representation methods."""
-        ham = GeneralHamiltonian({
+        sites = create_qubit_chain(2)
+        terms = {
             ('X', 'Y'): 1.0,
             ('Z', 'Z'): -0.5,
             ('I', 'X'): 0.3
-        })
+        }
+        ham = GeneralHamiltonian(sites, terms)
         
         # Test __repr__
         repr_str = repr(ham)
         assert "GeneralHamiltonian" in repr_str
-        assert "n_sites=2" in repr_str
-        assert "n_terms=3" in repr_str
+        assert "sites=2" in repr_str
+        assert "terms=3" in repr_str
         
         # Test __str__
         str_repr = str(ham)
         assert "GeneralHamiltonian" in str_repr
-        assert "X⊗Y" in str_repr or "X⊗Y" in str_repr
+        assert "X⊗Y" in str_repr
         assert "+1.000000" in str_repr
         assert "-0.500000" in str_repr
+    
+    def test_empty_string_representation(self):
+        """Test string representation of empty Hamiltonian."""
+        sites = create_qubit_chain(2)
+        ham = GeneralHamiltonian(sites)
+        
+        str_repr = str(ham)
+        assert "(empty)" in str_repr
+        assert "2 sites" in str_repr
+
+
+class TestGeneralHamiltonianIntegration:
+    
+    def test_matrix_consistency(self):
+        """Test that matrix representation is consistent."""
+        sites = create_qubit_chain(2)
+        
+        # Build Hamiltonian in two different ways
+        ham1 = GeneralHamiltonian(sites, {('X', 'Y'): 1.0, ('Z', 'Z'): 0.5})
+        
+        ham2 = GeneralHamiltonian(sites)
+        ham2[('X', 'Y')] = 1.0
+        ham2[('Z', 'Z')] = 0.5
+        
+        pauli_ops = PauliHilbertSpace(2).create_operators()
+        site_ops = {PauliHilbertSpace: pauli_ops}
+        
+        # Both should give same matrix
+        matrix1 = ham1.matrix(site_ops)
+        matrix2 = ham2.matrix(site_ops)
+        np.testing.assert_allclose(matrix1, matrix2)
+    
+    def test_arithmetic_matrix_consistency(self):
+        """Test that arithmetic operations preserve matrix representation."""
+        sites = create_qubit_chain(2)
+        
+        ham1 = GeneralHamiltonian(sites, {('X', 'X'): 1.0})
+        ham2 = GeneralHamiltonian(sites, {('Y', 'Y'): 0.5})
+        
+        pauli_ops = PauliHilbertSpace(2).create_operators()
+        site_ops = {PauliHilbertSpace: pauli_ops}
+        
+        # Test addition
+        ham_sum = ham1 + ham2
+        matrix_sum = ham_sum.matrix(site_ops)
+        expected_sum = ham1.matrix(site_ops) + ham2.matrix(site_ops)
+        np.testing.assert_allclose(matrix_sum, expected_sum)
+        
+        # Test scalar multiplication
+        ham_scaled = 2.0 * ham1
+        matrix_scaled = ham_scaled.matrix(site_ops)
+        expected_scaled = 2.0 * ham1.matrix(site_ops)
+        np.testing.assert_allclose(matrix_scaled, expected_scaled)
+    
+    def test_large_system(self):
+        """Test with larger systems."""
+        # 4-qubit system
+        sites = create_qubit_chain(4)
+        ham = build_heisenberg_hamiltonian(sites, 1.0, periodic=True)
+        
+        pauli_ops = PauliHilbertSpace(2).create_operators()
+        site_ops = {PauliHilbertSpace: pauli_ops}
+        
+        # Should handle 2^4 = 16 dimensional Hilbert space
+        H_matrix = ham.matrix(site_ops)
+        assert H_matrix.shape == (16, 16)
+        
+        # Check Hermiticity
+        assert np.allclose(H_matrix, H_matrix.conj().T)
 
 
 def run_all_tests():
@@ -449,10 +405,9 @@ def run_all_tests():
         TestGeneralHamiltonianBasics,
         TestGeneralHamiltonianOperators,
         TestGeneralHamiltonianOperations,
-        TestGeneralHamiltonianAnalysis,
         TestPrebuiltHamiltonians,
-        TestGeneralHamiltonianIntegration,
-        TestGeneralHamiltonianStringRepresentation
+        TestGeneralHamiltonianStringRepresentation,
+        TestGeneralHamiltonianIntegration
     ]
     
     total_tests = 0
@@ -477,7 +432,7 @@ def run_all_tests():
 
 
 if __name__ == "__main__":
-    print("Running GeneralHamiltonian tests...")
+    print("Running simplified GeneralHamiltonian tests...")
     success = run_all_tests()
     
     if success:
@@ -488,27 +443,31 @@ if __name__ == "__main__":
         print("\n=== Example: Two-qubit Heisenberg model ===")
         sites = create_qubit_chain(2)
         pauli_ops = PauliHilbertSpace(2).create_operators()
+        site_ops = {PauliHilbertSpace: pauli_ops}
         
         # Build Hamiltonian manually
-        ham = GeneralHamiltonian({
+        terms = {
             ('X', 'X'): 1.0,
             ('Y', 'Y'): 1.0,
             ('Z', 'Z'): 1.0
-        })
+        }
+        ham = GeneralHamiltonian(sites, terms)
         
         print(f"Hamiltonian:\n{ham}")
         
         # Convert to matrix
-        H_matrix = ham.to_matrix(sites, pauli_ops)
+        H_matrix = ham.matrix(site_ops)
         print(f"\nMatrix shape: {H_matrix.shape}")
-        print(f"Is Hermitian: {ham.is_hermitian(sites, pauli_ops)}")
+        print(f"Is Hermitian: {np.allclose(H_matrix, H_matrix.conj().T)}")
         
-        # Eigenvalues
-        eigenvals = np.linalg.eigvals(H_matrix)
-        print(f"Eigenvalues: {sorted(eigenvals.real)}")
+        # Test dictionary interface
+        print(f"\nXX coefficient: {ham[('X', 'X')]}")
+        ham[('I', 'Z')] = 0.5  # Add field term
+        print(f"After adding field: {len(ham)} terms")
         
         print("\n=== Example: Three-qubit Ising model ===")
-        ising_ham = build_ising_hamiltonian(3, J=1.0, h=0.5, periodic=False)
+        ising_sites = create_qubit_chain(3)
+        ising_ham = build_ising_hamiltonian(ising_sites, J=1.0, h=0.5, periodic=False)
         print(f"Ising Hamiltonian:\n{ising_ham}")
         
     else:
