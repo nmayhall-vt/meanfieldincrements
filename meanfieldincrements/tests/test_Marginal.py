@@ -34,7 +34,8 @@ def test_marginal_construction():
     # Create a random matrix for the marginal 
     dim_tot = np.prod([site.hilbert_space.dimension for site in sites])
     matrix = np.random.random((dim_tot, dim_tot)) + 1j * np.random.random((dim_tot, dim_tot))
-    matrix = (matrix + matrix.conj().T) / 2  # Ensure Hermitian
+    # make positive semidefinite
+    matrix = matrix @ matrix.conj().T
     matrix /= np.trace(matrix)  # Normalize to trace 1
     
     marginal = Marginal(matrix.copy(), sites)
@@ -61,6 +62,7 @@ def test_marginal_construction():
     print(" Now test factorized marginals")
     # Create Bell state factorization
     fmarginal = FactorizedMarginal.from_density_matrix(matrix, sites)
+    assert np.linalg.norm(fmarginal.tensor - matrix) < 1e-10
     print(fmarginal)
     
     assert(len(fmarginal.partial_trace([sites[0]]).sites) == 2)
