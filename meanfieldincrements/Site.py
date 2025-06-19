@@ -59,21 +59,21 @@ class Site:
         """Get the name of the Hilbert space at this site."""
         return self.hilbert_space.name
     
-    def create_operators(self) -> 'SiteOperators':
-        """
-        Create SiteOperators for this site's Hilbert space.
+    # def create_operators(self) -> 'SiteOperators':
+    #     """
+    #     Create SiteOperators for this site's Hilbert space.
         
-        Returns:
-            SiteOperators: Operators appropriate for this site's Hilbert space
+    #     Returns:
+    #         SiteOperators: Operators appropriate for this site's Hilbert space
         
-        Example:
-            >>> site = Site(0, SpinHilbertSpace(2))
-            >>> ops = site.create_operators()
-            >>> print(ops.keys())  # ['I', 'Sx', 'Sy', 'Sz', 'S+', 'S-']
-        """
-        # Use lazy import to avoid circular dependency
-        from .SiteOperators import SiteOperators
-        return SiteOperators(self.hilbert_space)
+    #     Example:
+    #         >>> site = Site(0, SpinHilbertSpace(2))
+    #         >>> ops = site.create_operators()
+    #         >>> print(ops.keys())  # ['I', 'Sx', 'Sy', 'Sz', 'S+', 'S-']
+    #     """
+    #     # Use lazy import to avoid circular dependency
+    #     from .SiteOperators import SiteOperators
+    #     return SiteOperators(self.hilbert_space)
     
     def is_qubit(self) -> bool:
         """Check if this site represents a qubit (2-level Pauli system)."""
@@ -240,24 +240,24 @@ if __name__ == "__main__":
     print(f"Fermion is_fermion: {fermion.is_fermion()}")
     print(f"Generic is_generic: {generic.is_generic()}")
     
-    # 3. Create operators for each site
-    print("\n3. Site operators:")
-    qubit_ops = qubit.create_operators()
-    spin_ops = spin1.create_operators()
-    fermion_ops = fermion.create_operators()
+    # # 3. Create operators for each site
+    # print("\n3. Site operators:")
+    # qubit_ops = SiteOperators(qubit.hilbert_space)
+    # spin_ops = spin1.create_operators()
+    # fermion_ops = fermion.create_operators()
     
-    print(f"Qubit operators: {list(qubit_ops.keys())}")
-    print(f"Spin-1 operators: {list(spin_ops.keys())}")
-    print(f"Fermion operators: {list(fermion_ops.keys())}")
+    # print(f"Qubit operators: {list(qubit_ops.keys())}")
+    # print(f"Spin-1 operators: {list(spin_ops.keys())}")
+    # print(f"Fermion operators: {list(fermion_ops.keys())}")
     
-    # 4. Convenience factory functions
-    print("\n4. Convenience factories:")
-    qubit_chain = create_qubit_chain(3)
-    spin_chain = create_spin_chain(3, 0.5)
-    fermion_chain = create_fermion_chain(2)
+    # # 4. Convenience factory functions
+    # print("\n4. Convenience factories:")
+    # qubit_chain = create_qubit_chain(3)
+    # spin_chain = create_spin_chain(3, 0.5)
+    # fermion_chain = create_fermion_chain(2)
     
-    print(f"Qubit chain: {[f'Site({s.label})' for s in qubit_chain]}")
-    print(f"Spin-1/2 chain: {[f'Site({s.label}, j={s.get_spin_value()})' for s in spin_chain]}")
-    print(f"Fermion chain: {[f'Site({s.label})' for s in fermion_chain]}")
+    # print(f"Qubit chain: {[f'Site({s.label})' for s in qubit_chain]}")
+    # print(f"Spin-1/2 chain: {[f'Site({s.label}, j={s.get_spin_value()})' for s in spin_chain]}")
+    # print(f"Fermion chain: {[f'Site({s.label})' for s in fermion_chain]}")
     
-    print("\n✅ All examples completed successfully!")
+    # print("\n✅ All examples completed successfully!")

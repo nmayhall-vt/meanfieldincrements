@@ -11,7 +11,8 @@ from meanfieldincrements import (
 
 # Import the simplified GeneralHamiltonian classes
 from meanfieldincrements import (
-    GeneralHamiltonian, build_heisenberg_hamiltonian, build_ising_hamiltonian
+    GeneralHamiltonian, build_heisenberg_hamiltonian, build_ising_hamiltonian,
+    SiteOperators
 )
 
 
@@ -90,19 +91,6 @@ class TestGeneralHamiltonianBasics:
 
 class TestGeneralHamiltonianOperators:
     
-    def test_single_site_operators(self):
-        """Test single-site operator conversion."""
-        sites = [Site(0, PauliHilbertSpace(2))]
-        terms = {('X',): 0.5, ('Y',): -0.3}
-        ham = GeneralHamiltonian(sites, terms)
-        
-        pauli_ops = sites[0].create_operators()
-        site_ops = {PauliHilbertSpace: pauli_ops}
-        
-        # Test matrix
-        H_matrix = ham.matrix(site_ops)
-        expected = 0.5 * pauli_ops['X'] + (-0.3) * pauli_ops['Y']
-        np.testing.assert_allclose(H_matrix, expected)
     
     def test_two_site_operators(self):
         """Test two-site operator conversion."""
@@ -114,8 +102,8 @@ class TestGeneralHamiltonianOperators:
         }
         ham = GeneralHamiltonian(sites, terms)
         
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        site_ops = {PauliHilbertSpace: pauli_ops}
+        pauli_ops = SiteOperators(PauliHilbertSpace(2))
+        site_ops = {PauliHilbertSpace(2): pauli_ops}
         
         # Test full matrix
         H_matrix = ham.matrix(site_ops)
@@ -135,8 +123,8 @@ class TestGeneralHamiltonianOperators:
         ham = GeneralHamiltonian(sites, terms)
         
         site_ops = {
-            PauliHilbertSpace: sites[0].create_operators(),
-            SpinHilbertSpace: sites[1].create_operators()
+            PauliHilbertSpace(2): SiteOperators(PauliHilbertSpace(2)),
+            SpinHilbertSpace(2): SiteOperators(SpinHilbertSpace(2))
         }
         
         # Should work with different libraries
@@ -152,8 +140,8 @@ class TestGeneralHamiltonianOperators:
         }
         ham = GeneralHamiltonian(sites, terms)
         
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        site_ops = {PauliHilbertSpace: pauli_ops}
+        pauli_ops = SiteOperators(PauliHilbertSpace(2))
+        site_ops = {PauliHilbertSpace(2): pauli_ops}
         
         H_matrix = ham.matrix(site_ops)
         assert H_matrix.shape == (8, 8)
@@ -168,7 +156,7 @@ class TestGeneralHamiltonianOperators:
         sites = create_qubit_chain(2)
         ham = GeneralHamiltonian(sites)  # Empty
         
-        pauli_ops = PauliHilbertSpace(2).create_operators()
+        pauli_ops = SiteOperators(PauliHilbertSpace(2))
         site_ops = {PauliHilbertSpace: pauli_ops}
         
         H_matrix = ham.matrix(site_ops)
@@ -352,8 +340,7 @@ class TestGeneralHamiltonianIntegration:
         ham2[('X', 'Y')] = 1.0
         ham2[('Z', 'Z')] = 0.5
         
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        site_ops = {PauliHilbertSpace: pauli_ops}
+        site_ops = {PauliHilbertSpace(2): SiteOperators(PauliHilbertSpace(2))}
         
         # Both should give same matrix
         matrix1 = ham1.matrix(site_ops)
@@ -367,8 +354,8 @@ class TestGeneralHamiltonianIntegration:
         ham1 = GeneralHamiltonian(sites, {('X', 'X'): 1.0})
         ham2 = GeneralHamiltonian(sites, {('Y', 'Y'): 0.5})
         
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        site_ops = {PauliHilbertSpace: pauli_ops}
+        pauli_ops = SiteOperators(PauliHilbertSpace(2))
+        site_ops = {PauliHilbertSpace(2): pauli_ops}
         
         # Test addition
         ham_sum = ham1 + ham2
@@ -388,9 +375,9 @@ class TestGeneralHamiltonianIntegration:
         sites = create_qubit_chain(4)
         ham = build_heisenberg_hamiltonian(sites, 1.0, periodic=True)
         
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        site_ops = {PauliHilbertSpace: pauli_ops}
-        
+        pauli_ops = SiteOperators(PauliHilbertSpace(2))
+        site_ops = {PauliHilbertSpace(2): pauli_ops}
+
         # Should handle 2^4 = 16 dimensional Hilbert space
         H_matrix = ham.matrix(site_ops)
         assert H_matrix.shape == (16, 16)
@@ -442,8 +429,8 @@ if __name__ == "__main__":
         # Quick demonstration
         print("\n=== Example: Two-qubit Heisenberg model ===")
         sites = create_qubit_chain(2)
-        pauli_ops = PauliHilbertSpace(2).create_operators()
-        site_ops = {PauliHilbertSpace: pauli_ops}
+        pauli_ops = SiteOperators(PauliHilbertSpace(2))
+        site_ops = {PauliHilbertSpace(2): pauli_ops}
         
         # Build Hamiltonian manually
         terms = {

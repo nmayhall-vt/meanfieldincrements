@@ -67,8 +67,8 @@ class TestSiteOperators:
     
     def test_kron_same_dimension(self):
         """Test Kronecker product with same dimensions."""
-        pauli1 = PauliHilbertSpace(2).create_operators()
-        pauli2 = PauliHilbertSpace(2).create_operators()
+        pauli1 = SiteOperators(PauliHilbertSpace(2))
+        pauli2 = SiteOperators(PauliHilbertSpace(2))
         
         result = pauli1.kron(pauli2)
         
@@ -91,8 +91,8 @@ class TestSiteOperators:
     
     def test_kron_different_dimensions(self):
         """Test Kronecker product with different dimensions."""
-        pauli = PauliHilbertSpace(2).create_operators()  # 4 operators, dim 2
-        spin = SpinHilbertSpace(3).create_operators()    # 6 operators, dim 3
+        pauli = SiteOperators(PauliHilbertSpace(2))  # 4 operators, dim 2
+        spin = SiteOperators(SpinHilbertSpace(3))    # 6 operators, dim 3
         
         result = pauli.kron(spin)
         
@@ -111,7 +111,7 @@ class TestSiteOperators:
     
     def test_commutator(self):
         """Test commutator calculation."""
-        pauli = PauliHilbertSpace(2).create_operators()
+        pauli = SiteOperators(PauliHilbertSpace(2))
         
         # [X, Y] = 2iZ for Pauli matrices
         comm = pauli.get_commutator("X", "Y")
@@ -124,7 +124,7 @@ class TestSiteOperators:
     
     def test_anticommutator(self):
         """Test anticommutator calculation."""
-        pauli = PauliHilbertSpace(2).create_operators()
+        pauli = SiteOperators(PauliHilbertSpace(2))
         
         # {X, Y} = 0 for Pauli matrices
         anticomm = pauli.get_anticommutator("X", "Y")
@@ -138,8 +138,8 @@ class TestSiteOperators:
     def test_integration_with_site_localoperator(self):
         """Test integration with existing Site and LocalOperator classes."""
         # Create operators
-        pauli = PauliHilbertSpace(2).create_operators()
-        spin = SpinHilbertSpace(2).create_operators()
+        pauli = SiteOperators(PauliHilbertSpace(2))
+        spin = SiteOperators(SpinHilbertSpace(2))
         
         # Create sites
         site0 = Site(0, 2)
@@ -167,7 +167,7 @@ class TestSiteOperators:
     
     def test_chained_kron(self):
         """Test chaining multiple Kronecker products."""
-        pauli = PauliHilbertSpace(2).create_operators()
+        pauli = SiteOperators(PauliHilbertSpace(2))
         
         # Chain three single-qubit spaces
         two_qubit = pauli.kron(pauli)
@@ -183,7 +183,7 @@ class TestSiteOperators:
     
     def test_add_operator_method(self):
         """Test add_operator method."""
-        pauli = PauliHilbertSpace(2).create_operators()
+        pauli = SiteOperators(PauliHilbertSpace(2))
         
         # Add a custom operator
         custom_op = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
@@ -194,7 +194,7 @@ class TestSiteOperators:
     
     def test_error_handling(self):
         """Test various error conditions."""
-        pauli = PauliHilbertSpace(2).create_operators()
+        pauli = SiteOperators(PauliHilbertSpace(2))
         
         # Non-existent operator
         with pytest.raises(KeyError):
@@ -210,10 +210,10 @@ class TestHilbertSpaceIntegration:
     def test_create_operators_method(self):
         """Test the create_operators convenience method."""
         pauli_space = PauliHilbertSpace(4)
-        pauli_ops = pauli_space.create_operators()
+        pauli_ops = SiteOperators(PauliHilbertSpace(4))
         
         assert isinstance(pauli_ops, SiteOperators)
-        assert pauli_ops.hilbert_space is pauli_space
+        assert pauli_ops.hilbert_space == pauli_space
         assert len(pauli_ops.operators) == 16
     
     def test_custom_hilbert_space(self):
@@ -237,7 +237,7 @@ class TestHilbertSpaceIntegration:
         assert set(test_ops.keys()) == {"A", "B", "C"}
         
         # Test kron with standard space
-        pauli = PauliHilbertSpace(2).create_operators()
+        pauli = SiteOperators(PauliHilbertSpace(2))
         combined = test_ops.kron(pauli)
         
         assert combined.hilbert_space.dimension == 6

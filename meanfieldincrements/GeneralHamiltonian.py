@@ -3,6 +3,7 @@ import copy as cp
 from typing import Dict, List, Union
 from .Site import Site
 from .SiteOperators import SiteOperators
+from .HilbertSpace import HilbertSpace
 
 
 class GeneralHamiltonian:
@@ -86,7 +87,7 @@ class GeneralHamiltonian:
         """Right multiplication by scalar."""
         return self * scalar
     
-    def matrix(self, site_ops: Dict[type, SiteOperators]) -> np.ndarray:
+    def matrix(self, site_ops: Dict[HilbertSpace, SiteOperators]) -> np.ndarray:
         """
         Returns the matrix representation of the Hamiltonian.
         
@@ -102,46 +103,27 @@ class GeneralHamiltonian:
             total_dim = np.prod([site.dimension for site in self.sites])
             return np.zeros((total_dim, total_dim), dtype=complex)
         
-        # Build operator libraries for each site
-        libraries = []
+        # print("nick in matrix")
+        # print(site_ops.keys())
+
+        # Validate site_ops contains all required HilbertSpaces
         for site in self.sites:
-            hilbert_type = type(site.hilbert_space)
-            if hilbert_type in site_ops:
-                libraries.append(site_ops[hilbert_type])
-            else:
-                # Fallback: create operators from the site's Hilbert space
-                libraries.append(site.create_operators())
-        
+            if site.hilbert_space not in site_ops:
+                raise ValueError(f"No operators defined for HilbertSpace {site.hilbert_space}")
+
         # Start with zero matrix
         total_dim = np.prod([site.dimension for site in self.sites])
         result = np.zeros((total_dim, total_dim), dtype=complex)
         
         # Add each term
         for op_string, coeff in self.terms.items():
-            term_matrix = self._get_term_matrix(op_string, libraries)
+            term_matrix = np.ones((1, 1))
+            for site in self.sites:
+                term_matrix = np.kron(term_matrix, site_ops[site.hilbert_space][op_string[site.label]])
             result += coeff * term_matrix
         
         return result
     
-    def _get_term_matrix(self, op_string: tuple, libraries: List[SiteOperators]) -> np.ndarray:
-        """Get matrix for a single term."""
-        if len(self.sites) == 1:
-            # Single site
-            op_label = op_string[0]
-            if op_label not in libraries[0]:
-                raise KeyError(f"Operator '{op_label}' not found in operator library")
-            return libraries[0][op_label]
-        else:
-            # Multi-site: use kron products
-            combined_ops = libraries[0]
-            for lib in libraries[1:]:
-                combined_ops = combined_ops.kron(lib)
-            
-            op_name = ''.join(op_string)
-            if op_name not in combined_ops:
-                raise KeyError(f"Combined operator '{op_name}' not found")
-            
-            return combined_ops[op_name]
     
     def __getitem__(self, key: tuple) -> Union[float, complex]:
         """Get coefficient for an operator string."""

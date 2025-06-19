@@ -8,7 +8,8 @@ import numpy as np
 from meanfieldincrements import (
     Site, HilbertSpace, PauliHilbertSpace, SpinHilbertSpace, FermionHilbertSpace,
     qubit_site, spin_site, fermion_site, multi_qubit_site,
-    create_sites, create_qubit_chain, create_spin_chain, create_fermion_chain
+    create_sites, create_qubit_chain, create_spin_chain, create_fermion_chain, 
+    SiteOperators
 )
 
 
@@ -113,28 +114,28 @@ class TestSiteOperators:
         """Test operator creation for different site types."""
         # Qubit site operators
         qubit = Site(0, PauliHilbertSpace(2))
-        qubit_ops = qubit.create_operators()
+        qubit_ops = SiteOperators(qubit.hilbert_space)
         
         expected_qubit_ops = {'I', 'X', 'Y', 'Z'}
         assert set(qubit_ops.keys()) == expected_qubit_ops
         
         # Spin site operators
         spin = Site(1, SpinHilbertSpace(2))  # Spin-1/2
-        spin_ops = spin.create_operators()
+        spin_ops = SiteOperators(spin.hilbert_space) 
         
         expected_spin_ops = {'I', 'Sx', 'Sy', 'Sz', 'S+', 'S-'}
         assert set(spin_ops.keys()) == expected_spin_ops
         
         # Fermion site operators
         fermion = Site(2, FermionHilbertSpace())
-        fermion_ops = fermion.create_operators()
+        fermion_ops = SiteOperators(fermion.hilbert_space)
         
         expected_fermion_ops = {'I', 'c', 'cdag', 'n'}
         assert set(fermion_ops.keys()) == expected_fermion_ops
         
         # Generic site operators
         generic = Site(3, 4)
-        generic_ops = generic.create_operators()
+        generic_ops = SiteOperators(generic.hilbert_space)
         
         assert 'I' in generic_ops.keys()
         assert generic_ops['I'].shape == (4, 4)
@@ -301,8 +302,8 @@ class TestSiteIntegrationWithExistingCode:
         spin_site_obj = Site(1, SpinHilbertSpace(2))
         
         # Get operators
-        qubit_ops = qubit_site_obj.create_operators()
-        spin_ops = spin_site_obj.create_operators()
+        qubit_ops = SiteOperators(qubit_site_obj.hilbert_space)
+        spin_ops = SiteOperators(spin_site_obj.hilbert_space)
         
         # Create LocalOperator (single site)
         x_op = LocalTensor(qubit_ops['X'], [qubit_site_obj])
@@ -349,9 +350,9 @@ class TestSiteIntegrationWithExistingCode:
         fermion = Site(2, FermionHilbertSpace())  # Also dimension 2
         
         # All should work together since they have the same dimension
-        qubit_ops = qubit.create_operators()
-        spin_ops = spin_half.create_operators()
-        fermion_ops = fermion.create_operators()
+        qubit_ops = SiteOperators(qubit.hilbert_space)
+        spin_ops = SiteOperators(spin_half.hilbert_space)
+        fermion_ops = SiteOperators(fermion.hilbert_space)
         
         # Create hybrid operators
         qubit_spin = qubit_ops.kron(spin_ops)

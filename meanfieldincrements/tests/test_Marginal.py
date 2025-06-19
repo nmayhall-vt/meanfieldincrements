@@ -4,7 +4,7 @@ Unit tests for the Marginal class.
 
 import pytest
 import numpy as np
-from meanfieldincrements import Site, LocalTensor, PauliHilbertSpace, SpinHilbertSpace, GeneralHamiltonian
+from meanfieldincrements import Site, LocalTensor, PauliHilbertSpace, SpinHilbertSpace, GeneralHamiltonian, SiteOperators
 from meanfieldincrements.Marginal import Marginal
 from meanfieldincrements.FactorizedMarginal import FactorizedMarginal
 
@@ -15,8 +15,7 @@ def test_marginal_construction():
     np.random.seed(42)  # For reproducibility
     oplib = {}
     for site in sites:
-        oplib[site.hilbert_space] = site.hilbert_space.create_operators()
-    # ops = [site.hilbert_space.create_operators() for site in sites]
+        oplib[site.hilbert_space] = SiteOperators(site.hilbert_space)
 
     for site in sites:
         print(site.hilbert_space)

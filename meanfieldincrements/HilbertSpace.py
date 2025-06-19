@@ -30,6 +30,30 @@ class HilbertSpace:
         self.dimension = dimension
         self.name = name or f"dim{dimension}"
     
+    def __eq__(self, other) -> bool:
+        """
+        Check equality with another HilbertSpace.
+        
+        Two HilbertSpace instances are equal if they are the same type
+        and have the same dimension.
+        """
+        if not isinstance(other, HilbertSpace):
+            return False
+        
+        # Must be exactly the same type (not just subclass)
+        if type(self) != type(other):
+            return False
+        
+        # Base HilbertSpace: compare dimension
+        return self.dimension == other.dimension
+    
+    def __hash__(self) -> int:
+        """
+        Hash based on type and dimension for use as dictionary keys.
+        """
+        return hash((type(self).__name__, self.dimension))
+    
+
     def build_operators(self) -> Dict[str, np.ndarray]:
         """
         Build default operators for this Hilbert space.
@@ -40,15 +64,15 @@ class HilbertSpace:
         """
         return {"I": np.eye(self.dimension)}
     
-    def create_operators(self):
-        """
-        Convenience method to create SiteOperators from this Hilbert space.
+    # def create_operators(self):
+    #     """
+    #     Convenience method to create SiteOperators from this Hilbert space.
         
-        Returns:
-            SiteOperators: A SiteOperators instance for this space
-        """
-        from .SiteOperators import SiteOperators
-        return SiteOperators(self)
+    #     Returns:
+    #         SiteOperators: A SiteOperators instance for this space
+    #     """
+    #     from .SiteOperators import SiteOperators
+    #     return SiteOperators(self)
     
     def __repr__(self) -> str:
         return f"HilbertSpace(dimension={self.dimension}, name='{self.name}')"

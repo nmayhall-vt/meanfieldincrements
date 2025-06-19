@@ -79,7 +79,6 @@ class Marginal(LocalTensor):
         nsites = self.nsites
         assert len(opstr) == nsites, "Operator string length must match number of sites"
 
-        print(opstr)
         if nsites == 0:
             return 0.0
         elif nsites == 1:
@@ -88,7 +87,6 @@ class Marginal(LocalTensor):
         elif nsites == 2:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
             O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
-            print(self.tensor.shape, O1.shape, O2.shape)
             return np.einsum('abAB,Aa,Bb->', self.tensor, O1, O2, optimize=True)
         elif nsites == 3:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]

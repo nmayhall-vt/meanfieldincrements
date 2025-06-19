@@ -210,6 +210,22 @@ class FactorizedMarginal(Marginal):
         return FactorizedMarginal.from_density_matrix(reduced_local.tensor, remaining_sites)
     
     @classmethod
+    def from_Marginal(cls, rho: 'Marginal') -> 'FactorizedMarginal':
+        """
+        Create a FactorizedMarginal from an existing Marginal.
+        
+        Args:
+            rho (Marginal): The marginal density matrix
+            
+        Returns:
+            FactorizedMarginal: New factorized marginal
+        """
+        if not isinstance(rho, Marginal):
+            raise TypeError("Input must be a Marginal instance")
+        
+        return cls.from_density_matrix(rho.tensor, rho.sites, tensor_format=rho._tensor_format)
+
+    @classmethod
     def from_density_matrix(cls, rho: np.ndarray, sites: List[Site], 
                            tensor_format: str = 'matrix') -> 'FactorizedMarginal':
         """
@@ -230,6 +246,7 @@ class FactorizedMarginal(Marginal):
             rho_mat = rho.reshape(total_dim, total_dim)
         else:
             rho_mat = rho
+        
         
         # Eigendecomposition
         eigenvals, eigenvecs = np.linalg.eigh(rho_mat)
@@ -329,18 +346,29 @@ class FactorizedMarginal(Marginal):
         
         if nsites == 1:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
-            return np.einsum('aA,Aa->', self.tensor, O1)
+            # return np.einsum('aA,Aa->', self.tensor, O1)
+            A = self.factor_A
+            return np.einsum('ax,Ax,Aa->', A, A.conj(), O1, optimize=True)
         elif nsites == 2:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
             O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
-            return np.einsum('abAB,Aa,Bb->', self.tensor, O1, O2, optimize=True)
+            A = self.factor_A
+            return np.einsum('abx,ABx,Aa,Bb->', A, A.conj(), O1, O2, optimize=True)
         elif nsites == 3:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
             O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
             O3 = oplib[self.sites[2].hilbert_space][opstr[2]]
-            return np.einsum('abcABC,Aa,Bb,Cc->', self.tensor, O1, O2, O3, optimize=True)
+            A = self.factor_A
+            return np.einsum('abcx,ABCx,Aa,Bb,Cc->', A, A.conj(), O1, O2, O3, optimize=True)
+        elif nsites == 4:
+            O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
+            O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
+            O3 = oplib[self.sites[2].hilbert_space][opstr[2]]
+            O4 = oplib[self.sites[3].hilbert_space][opstr[3]]
+            A = self.factor_A
+            return np.einsum('abcdx,ABCDx,Aa,Bb,Cc,Dd->', A, A.conj(), O1, O2, O3, O4, optimize=True)
         else:
-            raise NotImplementedError("Contracting more than 3 sites is not implemented yet.")
+            raise NotImplementedError("Contracting more than 4 sites is not implemented yet.")
     
     def __repr__(self) -> str:
         site_labels = [site.label for site in self.sites]

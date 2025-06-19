@@ -80,8 +80,8 @@ class SiteOperators:
             SiteOperators: New SiteOperators on the composite space
             
         Example:
-            >>> spin_ops = SpinHilbertSpace(2).create_operators()
-            >>> pauli_ops = PauliHilbertSpace(2).create_operators()  
+            >>> spin_ops = SiteOperators(SpinHilbertSpace(2))
+            >>> pauli_ops = SiteOperators(PauliHilbertSpace(2))  
             >>> combined = spin_ops.kron(pauli_ops)
             >>> print(combined.keys())  # ['ISx', 'ISy', 'ISz', 'XSx', 'XSy', ...]
         """

@@ -1,6 +1,7 @@
 from typing import Dict, Tuple, Union, List
 from .Marginal import Marginal
 from itertools import combinations
+from collections import OrderedDict
 
 class Marginals:
     """
@@ -18,7 +19,7 @@ class Marginals:
     
     def __init__(self):
         """Initialize empty Marginals container."""
-        self.marginals = {}  # Dict[Tuple[int, ...], Union[Marginal, FactorizedMarginal]]
+        self.marginals = OrderedDict()  
     
     def __getitem__(self, key: Tuple[int, ...]):
         """Get marginal by site indices."""
