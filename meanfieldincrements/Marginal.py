@@ -79,6 +79,7 @@ class Marginal(LocalTensor):
         nsites = self.nsites
         assert len(opstr) == nsites, "Operator string length must match number of sites"
 
+        print(opstr)
         if nsites == 0:
             return 0.0
         elif nsites == 1:
@@ -87,6 +88,7 @@ class Marginal(LocalTensor):
         elif nsites == 2:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
             O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
+            print(self.tensor.shape, O1.shape, O2.shape)
             return np.einsum('abAB,Aa,Bb->', self.tensor, O1, O2, optimize=True)
         elif nsites == 3:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
@@ -95,3 +97,16 @@ class Marginal(LocalTensor):
             return np.einsum('abcABC,Aa,Bb,Cc->', self.tensor, O1, O2, O3, optimize=True)
         else:
             raise NotImplementedError("Contracting more than 3 sites is not implemented yet.")
+    
+    @classmethod
+    def from_LocalTensor(cls, local_tensor: 'LocalTensor') -> 'Marginal':
+        """
+        Create a Marginal from a LocalTensor.
+        
+        Args:
+            local_tensor (LocalTensor): The LocalTensor to convert
+            
+        Returns:
+            Marginal: A new Marginal instance
+        """
+        return cls(local_tensor.tensor.copy(), local_tensor.sites, local_tensor._tensor_format)

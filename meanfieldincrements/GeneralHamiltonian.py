@@ -202,42 +202,6 @@ class GeneralHamiltonian:
 
 # Convenience functions for building common Hamiltonians
 
-def build_heisenberg_hamiltonian(sites: List[Site], 
-                                coupling: Union[float, complex] = 1.0,
-                                periodic: bool = False) -> GeneralHamiltonian:
-    """
-    Build a Heisenberg model Hamiltonian H = J∑⟨i,j⟩ (XᵢXⱼ + YᵢYⱼ + ZᵢZⱼ).
-    
-    Args:
-        sites (List[Site]): List of sites  
-        coupling (float or complex): Coupling strength J
-        periodic (bool): Whether to include periodic boundary conditions
-        
-    Returns:
-        GeneralHamiltonian: Heisenberg model Hamiltonian
-    """
-    n_sites = len(sites)
-    terms = {}
-    
-    # Determine pairs
-    pairs = []
-    for i in range(n_sites - 1):
-        pairs.append((i, i + 1))
-    
-    if periodic and n_sites > 2:
-        pairs.append((n_sites - 1, 0))
-    
-    # Add terms for each pair and each Pauli component
-    for i, j in pairs:
-        for pauli in ['X', 'Y', 'Z']:
-            # Create operator string with identity on all sites except i and j
-            op_list = ['I'] * n_sites
-            op_list[i] = pauli
-            op_list[j] = pauli
-            terms[tuple(op_list)] = coupling
-    
-    return GeneralHamiltonian(sites, terms)
-
 
 def build_ising_hamiltonian(sites: List[Site],
                            J: Union[float, complex] = 1.0,
@@ -277,5 +241,69 @@ def build_ising_hamiltonian(sites: List[Site],
             op_list = ['I'] * n_sites
             op_list[i] = 'X'
             terms[tuple(op_list)] = -h
+    
+    return GeneralHamiltonian(sites, terms)
+
+
+def build_heisenberg_hamiltonian(sites: List[Site], 
+                                coupling: Union[float, complex] = 1.0,
+                                periodic: bool = False) -> GeneralHamiltonian:
+    """
+    Build a Heisenberg model Hamiltonian H = J∑⟨i,j⟩ (S^x_i S^x_j + S^y_i S^y_j + S^z_i S^z_j).
+    
+    Uses appropriate spin operators based on each site's HilbertSpace type:
+    - SpinHilbertSpace: Uses 'Sx', 'Sy', 'Sz' (proper spin operators)
+    - PauliHilbertSpace: Uses 'X', 'Y', 'Z' (Pauli matrices)
+    - FermionHilbertSpace: Not supported (raises error)
+    - Generic HilbertSpace: Uses 'X', 'Y', 'Z' (assumes Pauli-like operators)
+    
+    Args:
+        sites (List[Site]): List of sites  
+        coupling (float or complex): Coupling strength J
+        periodic (bool): Whether to include periodic boundary conditions
+        
+    Returns:
+        GeneralHamiltonian: Heisenberg model Hamiltonian
+        
+    Raises:
+        ValueError: If any site uses FermionHilbertSpace (incompatible with Heisenberg model)
+    """
+    from .HilbertSpace import SpinHilbertSpace, PauliHilbertSpace, FermionHilbertSpace
+    
+    n_sites = len(sites)
+    terms = {}
+    
+    # Determine the appropriate operator names for each site
+    def get_spin_operators(site):
+        """Get the appropriate spin operator names for a site."""
+        if isinstance(site.hilbert_space, SpinHilbertSpace):
+            return ['Sx', 'Sy', 'Sz']
+        elif isinstance(site.hilbert_space, PauliHilbertSpace):
+            return ['X', 'Y', 'Z']
+        elif isinstance(site.hilbert_space, FermionHilbertSpace):
+            raise ValueError(f"Site {site.label} uses FermionHilbertSpace, which is incompatible with Heisenberg model")
+        else:
+            # Generic HilbertSpace - assume Pauli-like operators
+            return ['X', 'Y', 'Z']
+    
+    # Get operator names for each site
+    site_operators = [get_spin_operators(site) for site in sites]
+    
+    # Determine pairs for nearest-neighbor interactions
+    pairs = []
+    for i in range(n_sites - 1):
+        pairs.append((i, i + 1))
+    
+    if periodic and n_sites > 2:
+        pairs.append((n_sites - 1, 0))
+    
+    # Add terms for each pair and each spin component (x, y, z)
+    for i, j in pairs:
+        for component in range(3):  # 0=x, 1=y, 2=z components
+            # Create operator string with identity on all sites except i and j
+            op_list = ['I'] * n_sites
+            op_list[i] = site_operators[i][component]  # Sx/X, Sy/Y, or Sz/Z for site i
+            op_list[j] = site_operators[j][component]  # Sx/X, Sy/Y, or Sz/Z for site j
+            terms[tuple(op_list)] = coupling
     
     return GeneralHamiltonian(sites, terms)

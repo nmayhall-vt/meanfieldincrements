@@ -283,3 +283,50 @@ class MBEState:
         for term, local_op in self.terms.items():
             self.terms[term].unfold()
         return self
+    
+
+def build_MBEState_from_LocalTensor(lt:'LocalTensor', n_body:int=2):
+    """
+    Decompose a dense density matrix, provided as a `LocalTensor`, into a MBEState
+    """
+    sites = lt.sites
+    rho = MBEState(sites)
+
+    print("\n Adding 1-body term:")
+    for si in sites:
+        rho.terms[(si.label,)] = lt.compute_nbody_marginal([si]) 
+
+    if n_body < 2:
+        return rho
+
+    # Test 2: Add a 2-body correction
+    print("\n Adding 2-body correction term:")
+    for (si, sj) in combinations(sites, 2):
+        print(f"   Adding correction for sites {si.label} and {sj.label}")
+        rij = lt.compute_nbody_marginal([si,sj])
+        rho.terms[(si.label, sj.label)] = rho.compute_2body_cumulant(rij)
+    
+    
+    if n_body < 3:
+        return rho
+
+    print("\n Adding 3-body correction term:")
+    for (si, sj, sk) in combinations(sites, 3):
+        print(f"   Adding correction for sites %i %i %i " %(si.label, sj.label, sk.label))
+        rijk = lt.compute_nbody_marginal([si,sj,sk])
+        rho.terms[(si.label, sj.label, sk.label)] = rho.compute_3body_cumulant(rijk)
+    
+    
+    if n_body < 4:
+        return rho
+
+    print("\n Adding 4-body correction term:")
+    for (si, sj, sk, sl) in combinations(sites, 4):
+        print(f"   Adding correction for sites %i %i %i %i " %(si.label, sj.label, sk.label, sl.label))
+        rijk = lt.compute_nbody_marginal([si,sj,sk,sl])
+        rho.terms[(si.label, sj.label, sk.label, sl.label)] = rho.compute_4body_cumulant(rijkl)
+    
+    if n_body > 4:
+        raise NotImplementedError
+    
+    return rho

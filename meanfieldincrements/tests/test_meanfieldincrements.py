@@ -10,7 +10,6 @@ import pytest
 import meanfieldincrements
 import numpy as np
 
-
 def test_meanfieldincrements_imported():
     """Sample test, will always pass so long as import statement worked."""
     assert "meanfieldincrements" in sys.modules
