@@ -79,7 +79,8 @@ def test_energy():
 
     print(" Now call energy function")
     e = energy(H, local_expvals)
-    
+
+    assert np.isclose(e, lowest_energy ) 
 if __name__ == "__main__":
     # Run tests manually
     test_energy()
