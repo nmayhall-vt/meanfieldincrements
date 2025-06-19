@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 from meanfieldincrements import Site, LocalTensor, PauliHilbertSpace, SpinHilbertSpace, GeneralHamiltonian
 from meanfieldincrements.Marginal import Marginal
-
+from meanfieldincrements.FactorizedMarginal import FactorizedMarginal
 
 def test_marginal_construction():
     """Test basic Marginal construction."""
@@ -56,6 +56,23 @@ def test_marginal_construction():
         ev += marginal.contract_operators(op, oplib) * coeff
     print("Computed expectation value:", ev)
     assert np.isclose(ev, ev_ref), f"Expectation value mismatch: {ev} != {ev_ref}"
+
+
+    print(" Now test factorized marginals")
+    # Create Bell state factorization
+    fmarginal = FactorizedMarginal.from_density_matrix(matrix, sites)
+    print(fmarginal)
+    
+    assert(len(fmarginal.partial_trace([sites[0]]).sites) == 2)
+    assert(len(fmarginal.partial_trace([sites[0], sites[1]]).sites) == 1)
+    assert(len(fmarginal.partial_trace(sites).sites) == 0)
+    
+    ev2 = 0
+    for op,coeff in ham.items():
+        print(f"Operator: {op}, Coefficient: {coeff}") 
+        ev2 += fmarginal.contract_operators(op, oplib) * coeff
+    print("Computed expectation value:", ev)
+    assert np.isclose(ev2, ev_ref), f"Expectation value mismatch: {ev2} != {ev_ref}"
 
 
 

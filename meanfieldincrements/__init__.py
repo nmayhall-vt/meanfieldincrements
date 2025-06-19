@@ -31,5 +31,6 @@ from .GeneralHamiltonian import (
 )
 
 from .Marginal import Marginal
+from .FactorizedMarginal import FactorizedMarginal
 
 from ._version import __version__
