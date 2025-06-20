@@ -216,9 +216,10 @@ class Marginals:
                 factor_flat = vector[start_idx:end_idx]
                 
                 # Reshape to original factor shape
-                original_shape = marginal_info['shape']
-                factor_A_new = factor_flat.reshape(original_shape)
-                
+                # original_shape = marginal_info['shape']
+                factor_A_new = factor_flat.reshape(marginal.factor_A.shape)
+
+                # print(marginal._factor_A.shape, factor_A_new.shape) 
                 # Update the marginal's factor_A
                 marginal.factor_A = factor_A_new
                 

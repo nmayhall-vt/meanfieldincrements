@@ -35,7 +35,7 @@ class Marginal(LocalTensor):
         return len(self.sites)
     
 
-    def partial_trace(self, traced_sites: List[Site]) -> 'Marginal':
+    def partial_trace(self, traced_sites: List[int]) -> 'Marginal':
         """
         Compute partial trace over specified sites.
         
@@ -46,13 +46,16 @@ class Marginal(LocalTensor):
             Marginal: Reduced marginal after partial trace
         """
         # Convert Site objects to site labels for LocalTensor.partial_trace
-        traced_labels = [site.label for site in traced_sites]
         
         # Compute partial trace using parent method
-        reduced_tensor = super().partial_trace(traced_labels)
+        reduced_tensor = super().partial_trace(traced_sites)
         
         # Determine remaining sites
-        remaining_sites = [site for site in self.sites if site not in traced_sites]
+        remaining_sites = []
+        for si in self.sites:
+            if si.label not in traced_sites:
+                remaining_sites.append(si)
+        # remaining_sites = [site for site in self.sites if site not in traced_sites]
         
         return Marginal(reduced_tensor.tensor, remaining_sites, reduced_tensor._tensor_format)
     

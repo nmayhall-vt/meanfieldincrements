@@ -82,6 +82,20 @@ def test_energy():
     assert np.isclose(e, lowest_energy ) 
 
     lang_mults = LagrangeMultipliers(sites).initialize_to_zero(nbody=2)
+
+    # rho.unfold()
+    mvec, pm_meta_data = rho.export_to_vector() 
+    lvec, lm_meta_data = lang_mults.export_to_vector()
+    n_lang_mults = len(lvec)
+    n_marginal = len(mvec)
+
+    pvec = np.concatenate((mvec, lvec))
+    n_params = len(pvec)
+    
+    print("n_lang_mults: ", n_lang_mults)
+    print("n_marginal:   ", n_marginal)
+    print("n_params:     ", n_params)
+    
     print(lang_mults)
 
     constraint = compute_constraints(rho, lang_mults)
@@ -89,7 +103,31 @@ def test_energy():
     print(" Penalty from constraints:")
     print(constraint)
 
+    def loss(v, rho=rho, oplib=oplib):
+        # rho.unfold()
+        rho.import_from_vector(v[0:n_marginal], pm_meta_data)
+        lang_mults.import_from_vector(v[n_marginal:], lm_meta_data)
     
+        local_expvals = build_local_expvals(H, rho, oplib)
+        e = energy_from_expvals(H, local_expvals)
+        constraint = compute_constraints(rho, lang_mults)
+        return e + constraint
+
+    l = loss(pvec)
+    print(" Loss function: %12.8f %12.8fi" %(np.real(l), np.imag(l)))
+
+    l = loss(np.random.rand(n_params))
+    print(" Loss function rand1: %12.8f %12.8fi" %(np.real(l), np.imag(l)))
+    
+    print("export then import")
+    mvec, pm_meta_data = rho.export_to_vector() 
+    lvec, lm_meta_data = lang_mults.export_to_vector()
+    pvec = np.concatenate((mvec, lvec))
+    l2 = loss(pvec)
+    print(" Loss function rand2: %12.8f %12.8fi" %(np.real(l2), np.imag(l2)))
+
+    assert np.isclose(l2, l)
+
 if __name__ == "__main__":
     # Run tests manually
     test_energy()

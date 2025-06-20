@@ -184,7 +184,8 @@ class LagrangeMultipliers:
             
             if multiplier_info['is_scalar']:
                 # Scalar multiplier
-                self.multipliers[sites_key] = float(multiplier_flat[0])
+                self.multipliers[sites_key] = multiplier_flat[0]
+                # self.multipliers[sites_key] = float(multiplier_flat[0])
             else:
                 # Matrix multiplier
                 original_shape = multiplier_info['shape']

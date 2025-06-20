@@ -43,9 +43,9 @@ def test_marginal_construction():
 
     np.isclose(marginal.fold().unfold().tensor, matrix)
 
-    assert(len(marginal.partial_trace([sites[0]]).sites) == 2)
-    assert(len(marginal.partial_trace([sites[0], sites[1]]).sites) == 1)
-    assert(len(marginal.partial_trace(sites).sites) == 0)
+    assert(len(marginal.partial_trace([sites[0].label]).sites) == 2)
+    assert(len(marginal.partial_trace([sites[0].label, sites[1].label]).sites) == 1)
+    assert(len(marginal.partial_trace([site.label for site in sites]).sites) == 0)
 
     ev_ref = np.trace(matrix @ Hmat)
     print("Reference expectation value:", ev_ref)
