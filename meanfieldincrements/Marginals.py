@@ -1,4 +1,7 @@
 from typing import Dict, Tuple, Union, List
+import numpy as np
+
+from meanfieldincrements import LocalTensor
 from .Marginal import Marginal
 from itertools import combinations
 from collections import OrderedDict
@@ -113,6 +116,118 @@ class Marginals:
         for term in self.keys():
             self.marginals[term].unfold()
         return self
+
+    def export_to_vector(self) -> Tuple[np.ndarray, Dict]:
+        """
+        Export all A factors from FactorizedMarginal objects to a single 1D vector.
+        
+        Returns:
+            Tuple[np.ndarray, Dict]: 
+                - vector: 1D numpy array containing all A factor elements
+                - metadata: Dictionary containing information needed for reconstruction
+        
+        Note:
+            Only FactorizedMarginal objects contribute to the vector. Regular Marginal
+            objects are ignored but their presence is recorded in metadata.
+        """
+        from .FactorizedMarginal import FactorizedMarginal
+        
+        vector_parts = []
+        metadata = {
+            'marginal_info': {},  # Maps site keys to (is_factorized, shape, start_idx, end_idx)
+            'total_length': 0,
+            'tensor_formats': {}  # Maps site keys to tensor format
+        }
+        
+        current_idx = 0
+        
+        # Process marginals in a consistent order (sorted by keys)
+        for sites_key in sorted(self.marginals.keys()):
+            marginal = self.marginals[sites_key]
+            
+            if isinstance(marginal, FactorizedMarginal):
+                # Extract A factor and flatten
+                factor_A = marginal.factor_A
+                factor_flat = factor_A.flatten()
+                
+                # Store metadata
+                start_idx = current_idx
+                end_idx = current_idx + len(factor_flat)
+                
+                metadata['marginal_info'][sites_key] = {
+                    'is_factorized': True,
+                    'shape': factor_A.shape,
+                    'start_idx': start_idx,
+                    'end_idx': end_idx
+                }
+                metadata['tensor_formats'][sites_key] = marginal._tensor_format
+                
+                vector_parts.append(factor_flat)
+                current_idx = end_idx
+            else:
+                # Regular Marginal - record but don't include in vector
+                metadata['marginal_info'][sites_key] = {
+                    'is_factorized': False,
+                    'shape': None,
+                    'start_idx': None,
+                    'end_idx': None
+                }
+        
+        # Concatenate all parts
+        if vector_parts:
+            vector = np.concatenate(vector_parts)
+        else:
+            vector = np.array([])
+        
+        metadata['total_length'] = len(vector)
+        
+        return vector, metadata
+
+    def import_from_vector(self, vector: np.ndarray, metadata: Dict) -> None:
+        """
+        Import A factors from a 1D vector and update FactorizedMarginal objects.
+        
+        Args:
+            vector (np.ndarray): 1D array containing all A factor elements
+            metadata (Dict): Metadata dictionary returned by export_to_vector
+        
+        Raises:
+            ValueError: If vector length doesn't match expected length
+            KeyError: If metadata is missing required information
+        """
+        from .FactorizedMarginal import FactorizedMarginal
+        
+        if len(vector) != metadata['total_length']:
+            raise ValueError(f"Vector length {len(vector)} doesn't match expected length {metadata['total_length']}")
+        
+        # Process marginals in the same order as export
+        for sites_key in sorted(self.marginals.keys()):
+            marginal_info = metadata['marginal_info'][sites_key]
+            
+            if marginal_info['is_factorized']:
+                marginal = self.marginals[sites_key]
+                
+                if not isinstance(marginal, FactorizedMarginal):
+                    raise ValueError(f"Marginal at {sites_key} was expected to be FactorizedMarginal but is {type(marginal)}")
+                
+                # Extract the relevant portion of the vector
+                start_idx = marginal_info['start_idx']
+                end_idx = marginal_info['end_idx']
+                factor_flat = vector[start_idx:end_idx]
+                
+                # Reshape to original factor shape
+                original_shape = marginal_info['shape']
+                factor_A_new = factor_flat.reshape(original_shape)
+                
+                # Update the marginal's factor_A
+                marginal.factor_A = factor_A_new
+                
+                # Restore tensor format if needed
+                target_format = metadata['tensor_formats'][sites_key]
+                if target_format == 'tensor' and marginal._tensor_format == 'matrix':
+                    marginal.fold()
+                elif target_format == 'matrix' and marginal._tensor_format == 'tensor':
+                    marginal.unfold()
 
 
 def build_Marginals_from_LocalTensor(lt:'LocalTensor', n_body:int=2):

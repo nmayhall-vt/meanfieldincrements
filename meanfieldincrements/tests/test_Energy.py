@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from meanfieldincrements import Site, LocalTensor, PauliHilbertSpace, SpinHilbertSpace, GeneralHamiltonian, SiteOperators
 from meanfieldincrements.FactorizedMarginal import FactorizedMarginal
-from meanfieldincrements.Energy import energy, build_local_expvals
+from meanfieldincrements.Energy import energy_from_expvals, build_local_expvals
 from meanfieldincrements.GeneralHamiltonian import build_heisenberg_hamiltonian, build_ising_hamiltonian
 from meanfieldincrements.Marginals import Marginals, build_Marginals_from_LocalTensor
 
@@ -53,7 +53,7 @@ def test_energy():
 
 
     print(" Now call energy function")
-    e = energy(H, local_expvals)
+    e = energy_from_expvals(H, local_expvals)
 
     assert np.isclose(e, lowest_energy ) 
 
@@ -76,7 +76,7 @@ def test_energy():
 
 
     print(" Now call energy function")
-    e = energy(H, local_expvals)
+    e = energy_from_expvals(H, local_expvals)
 
     assert np.isclose(e, lowest_energy ) 
 

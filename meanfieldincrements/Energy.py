@@ -1,12 +1,14 @@
 import numpy as np
 import copy as cp
 from typing import Dict, List, Union
+
+from meanfieldincrements import Marginals
 from .Site import Site
 from .SiteOperators import SiteOperators
 from .GeneralHamiltonian import GeneralHamiltonian
 from itertools import combinations
 
-def energy(H:'GeneralHamiltonian', local_evals:Dict[List[Site], Dict[str, float]]):
+def energy_from_expvals(H:'GeneralHamiltonian', local_evals:Dict):
 
     E = 0
 
