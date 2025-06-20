@@ -64,9 +64,9 @@ def test_marginal_construction():
     assert np.linalg.norm(fmarginal.tensor - matrix) < 1e-10
     print(fmarginal)
     
-    assert(len(fmarginal.partial_trace([sites[0]]).sites) == 2)
-    assert(len(fmarginal.partial_trace([sites[0], sites[1]]).sites) == 1)
-    assert(len(fmarginal.partial_trace(sites).sites) == 0)
+    assert(len(fmarginal.partial_trace([sites[0].label]).sites) == 2)
+    assert(len(fmarginal.partial_trace([sites[0].label, sites[1].label]).sites) == 1)
+    assert(len(fmarginal.partial_trace([site.label for site in sites]).sites) == 0)
     
     ev2 = 0
     for op,coeff in ham.items():

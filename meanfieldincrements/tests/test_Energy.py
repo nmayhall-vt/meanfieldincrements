@@ -2,8 +2,9 @@ import pytest
 import numpy as np
 from meanfieldincrements import Site, LocalTensor, PauliHilbertSpace, SpinHilbertSpace, GeneralHamiltonian, SiteOperators
 from meanfieldincrements.FactorizedMarginal import FactorizedMarginal
-from meanfieldincrements.Energy import energy_from_expvals, build_local_expvals
+from meanfieldincrements.Energy import compute_constraints, energy_from_expvals, build_local_expvals
 from meanfieldincrements.GeneralHamiltonian import build_heisenberg_hamiltonian, build_ising_hamiltonian
+from meanfieldincrements.LagrangeMultipliers import LagrangeMultipliers
 from meanfieldincrements.Marginals import Marginals, build_Marginals_from_LocalTensor
 
 def test_energy():
@@ -80,6 +81,15 @@ def test_energy():
 
     assert np.isclose(e, lowest_energy ) 
 
+    lang_mults = LagrangeMultipliers(sites).initialize_to_zero(nbody=2)
+    print(lang_mults)
+
+    constraint = compute_constraints(rho, lang_mults)
+
+    print(" Penalty from constraints:")
+    print(constraint)
+
+    
 if __name__ == "__main__":
     # Run tests manually
     test_energy()

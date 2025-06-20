@@ -34,5 +34,6 @@ from .Marginal import Marginal
 from .Marginals import Marginals, build_Marginals_from_LocalTensor
 from .FactorizedMarginal import FactorizedMarginal
 from .Energy import energy_from_expvals, build_local_expvals
+from .LagrangeMultipliers import LagrangeMultipliers
 
 from ._version import __version__

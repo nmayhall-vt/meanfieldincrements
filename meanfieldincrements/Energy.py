@@ -3,6 +3,7 @@ import copy as cp
 from typing import Dict, List, Union
 
 from meanfieldincrements import Marginals
+from meanfieldincrements.LagrangeMultipliers import LagrangeMultipliers
 from .Site import Site
 from .SiteOperators import SiteOperators
 from .GeneralHamiltonian import GeneralHamiltonian
@@ -64,3 +65,33 @@ def build_local_expvals(H: 'GeneralHamiltonian', rho: 'Marginals', oplib: Dict[S
             local_expvals[si,sj][opstr] = rho[si.label, sj.label].contract_operators(opstr, oplib)
 
     return local_expvals
+
+
+def compute_constraints(margs:'Marginals', lagrange_mults:'LagrangeMultipliers', verbose=False):
+    """
+    lagrange_mults[(i,)] = Lambda^(i) 
+    lagrange_mults[(i,j)] = Lambda^(ij) 
+    lagrange_mults[(i,j,k)] = Lambda^(ijk) 
+    where 
+    loss += Lambda^(i) (tr(\rho^{(i)})-1)
+    loss += Lambda^(ij) (tr_j(\rho^{(ij)})-\rho^{(i)}) = Lambda^(ij) * tr_j(lambda^(i,j))
+    """
+    margs.unfold()
+    loss = 0.0
+    for term,lamb in lagrange_mults.items():
+        #
+        # Because \Lambda^{(i,j)} \neq \Lambda^{(j,i)} we consider them both. 
+        # However, we only store i<j, marginals, so we need to sort the key before we grab the marginal
+        t0 = tuple(sorted(term))        # marginal key for current constraint: N body
+        t1 = tuple(sorted(term[1:]))    # marginal key for current constraint N-1 body
+        trace_idx = term[0]
+        if len(term) == 1:
+            print(t0, margs[t0])
+            loss += lamb * (margs[t0].trace() - 1)
+        else: 
+            rhoi_j = margs[t0].partial_trace([trace_idx,])
+            rho_j = margs[t1]
+            loss += np.trace( lamb @ (rhoi_j.tensor - rho_j.tensor) )
+    return loss 
+
+

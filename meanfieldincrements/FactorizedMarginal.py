@@ -173,7 +173,7 @@ class FactorizedMarginal(Marginal):
         """Compute trace of the density matrix (should always be 1)."""
         return 1.0  # By construction, tr(ρ) = 1
     
-    def partial_trace(self, traced_sites: List[Site]) -> 'Marginal':
+    def partial_trace(self, traced_sites: List[int]) -> 'Marginal':
         """
         Compute partial trace over specified sites.
         
@@ -189,11 +189,15 @@ class FactorizedMarginal(Marginal):
         # 3. Factorize the result
         
         # Convert Site objects to site labels for LocalTensor.partial_trace
-        traced_labels = [site.label for site in traced_sites]
+        # traced_labels = [site.label for site in traced_sites]
         
         # Get the full density matrix as a LocalTensor
         rho_full = self._compute_density_matrix()
-        remaining_sites = [site for site in self.sites if site not in traced_sites]
+        remaining_sites = []
+        for si in self.sites:
+            if si.label not in traced_sites:
+                remaining_sites.append(si)
+        # remaining_sites = [site for site in self.sites if site not in traced_sites]
         
         if not remaining_sites:
             # Tracing all sites - return scalar
@@ -204,7 +208,7 @@ class FactorizedMarginal(Marginal):
         
         # Create LocalTensor and perform partial trace
         local_op = LocalTensor(rho_full, self.sites, 'matrix')
-        reduced_local = local_op.partial_trace(traced_labels)
+        reduced_local = local_op.partial_trace(traced_sites)
         
         # Create new FactorizedMarginal from the reduced density matrix
         return FactorizedMarginal.from_density_matrix(reduced_local.tensor, remaining_sites)

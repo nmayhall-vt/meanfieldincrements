@@ -230,6 +230,8 @@ class Marginals:
                     marginal.unfold()
 
 
+
+
 def build_Marginals_from_LocalTensor(lt:'LocalTensor', n_body:int=2):
     """
     Decompose a dense density matrix, provided as a `LocalTensor`, into a Marginals
@@ -259,7 +261,7 @@ def build_Marginals_from_LocalTensor(lt:'LocalTensor', n_body:int=2):
         return rho
 
     for (si, sj, sk, sl) in combinations(sites, 4):
-        rho.terms[(si.label, sj.label, sk.label, sl.label)] = Marginal.from_LocalTensor(lt.compute_nbody_marginal([si,sj,sk,sl]))
+        rho[(si.label, sj.label, sk.label, sl.label)] = Marginal.from_LocalTensor(lt.compute_nbody_marginal([si,sj,sk,sl]))
     
     if n_body > 4:
         raise NotImplementedError
