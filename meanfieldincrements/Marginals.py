@@ -1,7 +1,7 @@
 from typing import Dict, Tuple, Union, List
 import numpy as np
 
-from meanfieldincrements import LocalTensor
+from meanfieldincrements import LocalTensor, Site
 from .Marginal import Marginal
 from itertools import combinations
 from collections import OrderedDict
@@ -230,8 +230,105 @@ class Marginals:
                 elif target_format == 'matrix' and marginal._tensor_format == 'tensor':
                     marginal.unfold()
 
+    def initialize_maximally_mixed(self, sites: List['Site'], nbody: int = 2, rank: int = None) -> 'Marginals':
+        """
+        Initialize maximally mixed marginals using FactorizedMarginal representation.
+        
+        Each marginal is created as A*A† where A is chosen to give the maximally mixed state.
+        This can be more memory efficient for large systems.
+        
+        Args:
+            sites (List[Site]): All sites in the system
+            nbody (int): Maximum n-body order to initialize (default: 2)
+            rank (int): Rank of factorization (default: full rank = dimension)
+            
+        Returns:
+            Marginals: Self for method chaining
+        """
+        from itertools import combinations
+        from .FactorizedMarginal import FactorizedMarginal
+        
+        print(f"Initializing maximally mixed factorized marginals up to {nbody}-body...")
+        
+        # Clear any existing marginals
+        self.marginals.clear()
+        
+        for n in range(1, nbody + 1):
+            print(f"  Creating {n}-body factorized marginals...")
+            
+            for site_combination in combinations(sites, n):
+                total_dim = np.prod([site.dimension for site in site_combination])
+                
+                # Choose rank (default to full rank for maximally mixed)
+                actual_rank = rank if rank is not None else total_dim
+                actual_rank = min(actual_rank, total_dim)  # Can't exceed dimension
+                
+                # For maximally mixed state, we want A such that A*A† = I/dim
+                # One choice: A = (1/√dim) * [I, 0] where I is dim×rank identity
+                scale_factor = 1.0 / np.sqrt(total_dim)
+                
+                if actual_rank == total_dim:
+                    # Full rank: A = (1/√dim) * I
+                    factor_A = scale_factor * np.eye(total_dim, dtype=complex)
+                else:
+                    # Reduced rank: A = (1/√dim) * [I_rank; 0]
+                    factor_A = np.zeros((total_dim, actual_rank), dtype=complex)
+                    factor_A[:actual_rank, :actual_rank] = scale_factor * np.eye(actual_rank)
+                
+                # Create site labels tuple (sorted for consistency)
+                site_labels = tuple(sorted([site.label for site in site_combination]))
+                
+                # Create FactorizedMarginal and store it
+                factorized_marginal = FactorizedMarginal(factor_A, list(site_combination), tensor_format='matrix')
+                self[site_labels] = factorized_marginal
+                
+                print(f"    Added factorized marginal {site_labels}: "
+                    f"dim={total_dim}, rank={actual_rank}, trace={factorized_marginal.trace():.6f}")
+        
+        total_marginals = len(self.marginals)
+        print(f"  Total factorized marginals created: {total_marginals}")
+        
+        return self
 
+    def compute_constraint_violations(self):
+        violations = []
+        self.fold()
+        for sites in self.keys():
+            if len(sites) == 2:
+                si,sj = sites 
 
+                mi  = self.marginals[(si, )]
+                mj  = self.marginals[(sj, )]
+                mij = self.marginals[(si, sj)]
+
+                trace_i = mij.partial_trace([si])
+                violation = np.linalg.norm(trace_i.tensor - mj.tensor)
+                violations.append(violation)
+
+                trace_j = mij.partial_trace([sj])
+                violation = np.linalg.norm(trace_j.tensor - mi.tensor)
+                violations.append(violation)
+        return np.real_if_close(violations)
+    
+    def print_cumulants(self):
+        print(" 2-Body Cumulants: ")
+        self.unfold()
+        for sites in self.keys():
+            if len(sites) == 2:
+                si,sj = sites
+                cumul = self[sites].tensor - np.kron(self[(si,)].tensor, self[(sj,)].tensor)
+                print("    %2i,%2i : Norm(lambda) = %12.8f" %(si,sj,np.linalg.norm(cumul)))
+                
+    def build_full_matrix(self):
+        N = 0
+        for margs in self.keys():
+            if len(margs) == 1:
+                N = max(N, margs[0]+1)
+        
+        letters = 'abcdefghijklmnopqrstuvwxyz'[0:N]
+        letters += letters.upper()
+        print(letters)
+        raise NotImplementedError("Not finished")
 
 def build_Marginals_from_LocalTensor(lt:'LocalTensor', n_body:int=2):
     """

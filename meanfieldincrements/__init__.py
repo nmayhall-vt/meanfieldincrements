@@ -33,7 +33,7 @@ from .GeneralHamiltonian import (
 from .Marginal import Marginal
 from .Marginals import Marginals, build_Marginals_from_LocalTensor
 from .FactorizedMarginal import FactorizedMarginal
-from .Energy import energy_from_expvals, build_local_expvals
+from .Energy import energy_from_expvals, build_local_expvals, get_cost_function_full
 from .LagrangeMultipliers import LagrangeMultipliers
-
+from .solve_sdp import solve_quantum_sdp
 from ._version import __version__

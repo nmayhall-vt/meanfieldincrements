@@ -5,7 +5,6 @@ Clean version without artificial "compatibility" restrictions.
 
 from typing import Union, Optional
 from .HilbertSpace import HilbertSpace, PauliHilbertSpace, SpinHilbertSpace, FermionHilbertSpace
-# ↑ These imports are ESSENTIAL and CORRECT - Site needs HilbertSpace classes!
 
 
 class Site:
@@ -58,22 +57,6 @@ class Site:
     def name(self) -> str:
         """Get the name of the Hilbert space at this site."""
         return self.hilbert_space.name
-    
-    # def create_operators(self) -> 'SiteOperators':
-    #     """
-    #     Create SiteOperators for this site's Hilbert space.
-        
-    #     Returns:
-    #         SiteOperators: Operators appropriate for this site's Hilbert space
-        
-    #     Example:
-    #         >>> site = Site(0, SpinHilbertSpace(2))
-    #         >>> ops = site.create_operators()
-    #         >>> print(ops.keys())  # ['I', 'Sx', 'Sy', 'Sz', 'S+', 'S-']
-    #     """
-    #     # Use lazy import to avoid circular dependency
-    #     from .SiteOperators import SiteOperators
-    #     return SiteOperators(self.hilbert_space)
     
     def is_qubit(self) -> bool:
         """Check if this site represents a qubit (2-level Pauli system)."""

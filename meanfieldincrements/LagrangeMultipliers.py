@@ -45,17 +45,20 @@ class LagrangeMultipliers:
         for (si, sj) in combinations(self.sites, 2):
             # Multiplier for tr_i(ρ_ij) - ρ_j constraint
             dim = sj.dimension 
-            self.multipliers[(si.label, sj.label)] = np.zeros((dim, dim))
+            # self.multipliers[(si.label, sj.label)] = np.zeros((dim, dim))
+            self.multipliers[(si.label, sj.label)] = 0 
             
             # Multiplier for tr_j(ρ_ij) - ρ_i constraint
             dim = si.dimension 
-            self.multipliers[(sj.label, si.label)] = np.zeros((dim, dim))
+            self.multipliers[(sj.label, si.label)] = 0
+            # self.multipliers[(sj.label, si.label)] = np.zeros((dim, dim))
 
         if nbody < 3:
             return self
 
         # 3-body: matrix multipliers for 3-body partial trace consistency
         for (si, sj, sk) in combinations(self.sites, 3):
+            raise NotImplementedError
             # Multiplier for tr_i(ρ_ijk) - ρ_jk constraint
             dim = sj.dimension * sk.dimension
             self.multipliers[(si.label, sj.label, sk.label)] = np.zeros((dim, dim))

@@ -124,7 +124,13 @@ class GeneralHamiltonian:
         
         return result
     
-    
+    def build_SiteOperators(self):
+        oplib = {}
+        for si in self.sites: 
+            if si.hilbert_space not in oplib:
+                oplib[si.hilbert_space] = SiteOperators(si.hilbert_space)
+        return oplib
+
     def __getitem__(self, key: tuple) -> Union[float, complex]:
         """Get coefficient for an operator string."""
         return self.terms[key]
