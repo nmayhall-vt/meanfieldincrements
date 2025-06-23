@@ -111,3 +111,12 @@ class Marginal(LocalTensor):
             Marginal: A new Marginal instance
         """
         return cls(local_tensor.tensor.copy(), local_tensor.sites, local_tensor._tensor_format)
+    
+    def entropy(self):
+        self.unfold()
+        s = 0
+        ev = np.real_if_close(np.linalg.eigvalsh(self.tensor))
+        for ei in ev:
+            if ei > 1e-14:
+                s -= ei * np.log(ei)
+        return s

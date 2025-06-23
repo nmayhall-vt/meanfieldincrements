@@ -87,7 +87,9 @@ class Marginals:
                     trace_str = "N/A"
                 
                 shape_str = str(marginal.tensor.shape) if hasattr(marginal, 'tensor') else "N/A"
-                lines.append(f"    {sites}: shape={shape_str}, trace={trace_str}")
+                str_curr = f"    {sites}: shape={shape_str}, trace={trace_str}"
+                str_curr += " entropy=%12.8f"%marginal.entropy()
+                lines.append(str_curr)
         
         return "\n".join(lines)
     
@@ -230,7 +232,7 @@ class Marginals:
                 elif target_format == 'matrix' and marginal._tensor_format == 'tensor':
                     marginal.unfold()
 
-    def initialize_maximally_mixed(self, sites: List['Site'], nbody: int = 2, rank: int = None) -> 'Marginals':
+    def initialize_maximally_mixed(self, sites: List['Site'], nbody: int = 2, rank = None) -> 'Marginals':
         """
         Initialize maximally mixed marginals using FactorizedMarginal representation.
         

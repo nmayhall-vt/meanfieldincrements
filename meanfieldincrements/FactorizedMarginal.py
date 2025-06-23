@@ -350,30 +350,43 @@ class FactorizedMarginal(Marginal):
         
         if nsites == 1:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
-            # return np.einsum('aA,Aa->', self.tensor, O1)
-            A = self.factor_A
-            return np.einsum('ax,Ax,Aa->', A, A.conj(), O1, optimize=True)
+            return np.einsum('aA,Aa->', self.tensor, O1, optimize=True)
+            # A = self.factor_A
+            # return np.einsum('ax,Ax,Aa->', A, A.conj(), O1, optimize=True)
         elif nsites == 2:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
             O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
-            A = self.factor_A
-            return np.einsum('abx,ABx,Aa,Bb->', A, A.conj(), O1, O2, optimize=True)
+            # l = self.compute_2body_cumulant(self.sites[0],self.sites[1]).fold().tensor
+            # return np.einsum('abAB,Aa,Bb->', l, O1, O2, optimize=True)
+            return np.einsum('abAB,Aa,Bb->', self.tensor, O1, O2, optimize=True)
+            # A = self.factor_A
+            # return np.einsum('abx,ABx,Aa,Bb->', A, A.conj(), O1, O2, optimize=True)
         elif nsites == 3:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
             O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
             O3 = oplib[self.sites[2].hilbert_space][opstr[2]]
-            A = self.factor_A
-            return np.einsum('abcx,ABCx,Aa,Bb,Cc->', A, A.conj(), O1, O2, O3, optimize=True)
+            # A = self.factor_A
+            # return np.einsum('abcx,ABCx,Aa,Bb,Cc->', A, A.conj(), O1, O2, O3, optimize=True)
+            return np.einsum('abcABC,Aa,Bb,Cc->', self.tensor, O1, O2, O3, optimize=True)
         elif nsites == 4:
             O1 = oplib[self.sites[0].hilbert_space][opstr[0]]
             O2 = oplib[self.sites[1].hilbert_space][opstr[1]]
             O3 = oplib[self.sites[2].hilbert_space][opstr[2]]
             O4 = oplib[self.sites[3].hilbert_space][opstr[3]]
-            A = self.factor_A
-            return np.einsum('abcdx,ABCDx,Aa,Bb,Cc,Dd->', A, A.conj(), O1, O2, O3, O4, optimize=True)
+            # A = self.factor_A
+            # return np.einsum('abcdx,ABCDx,Aa,Bb,Cc,Dd->', A, A.conj(), O1, O2, O3, O4, optimize=True)
+            return np.einsum('abcdABCD,Aa,Bb,Cc,Dd->', self.tensor, O1, O2, O3, O4, optimize=True)
         else:
             raise NotImplementedError("Contracting more than 4 sites is not implemented yet.")
     
     def __repr__(self) -> str:
         site_labels = [site.label for site in self.sites]
         return f"FactorizedMarginal(sites={site_labels}, rank={self.rank}, shape={self._factor_A.shape})"
+    
+    # def entropy(self):
+    #     self.unfold()
+    #     s = 0
+    #     ev = np.real_if_close(np.linalg.eigvalsh(self.tensor))
+    #     for ei in ev:
+    #         s -= ei * np.log(ei)
+    #     return s
