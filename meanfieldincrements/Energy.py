@@ -13,16 +13,19 @@ def energy_from_expvals(H:'GeneralHamiltonian', local_evals:Dict, verbose=False)
 
     E = 0
 
+    E1b = 0
     for term,coeff in H.items():
         coeff_i = 1
         for si in H.sites:
             coeff_i *= local_evals[(si,)][(term[si.label],)]
 
-        E += coeff_i*coeff
-    
-    if verbose: print(" 1-body energy: %12.8f + %12.8fi"%(np.real(E), np.imag(E))) 
+        E1b += coeff_i*coeff
+        assert np.abs(np.imag(E1b)) < 1e-12
+    E1b = np.real_if_close(E1b) 
+    if verbose: print(" 1-body energy: %12.8f"%E1b) 
 
     # 2body
+    E2b = 0
     for term,coeff in H.items():
         for (si, sj) in combinations(H.sites, 2):
             eij = local_evals[(si,sj)][term[si.label],term[sj.label]]
@@ -34,9 +37,38 @@ def energy_from_expvals(H:'GeneralHamiltonian', local_evals:Dict, verbose=False)
             for si in set(H.sites).difference(set([si,sj])):
                 coeff_i *= local_evals[(si,)][(term[si.label],)]
         
-            E += coeff_i*coeff
+            E2b += coeff_i*coeff
+    E2b = np.real_if_close(E2b) 
+    if verbose: print(" 2-body energy: %12.8f"%E2b) 
 
-    if verbose: print(" 2-body energy: %12.8f + %12.8fi"%(np.real(E), np.imag(E))) 
+    # 3body
+    E3b = 0
+    for term,coeff in H.items():
+        for (si, sj, sk) in combinations(H.sites, 3):
+            if (si,sj,sk) not in local_evals:
+                continue
+            eijk = local_evals[(si,sj,sk)][term[si.label],term[sj.label],term[sk.label]]
+            eij = local_evals[(si,sj)][term[si.label],term[sj.label]]
+            eik = local_evals[(si,sk)][term[si.label],term[sk.label]]
+            ejk = local_evals[(si,sj)][term[sj.label],term[sk.label]]
+            ei  = local_evals[(si,)][term[si.label],]
+            ej  = local_evals[(sj,)][term[sj.label],]
+            ej  = local_evals[(sj,)][term[sk.label],]
+            # rho(ijk) = l(ijk) + l(ij)r(k) + l(ik)r(j) + l(jk)r(i) + r(i)r(j)r(k)
+            # r(ijk)   = l(ijk) + r(ij)r(k) + r(ik)r(j) + r(jk)r(i) - 2r(i)r(j)r(k)
+            # l(ijk)   = r(ijk) - r(ij)r(k) - r(ik)r(j) - r(jk)r(i) + 2r(i)r(j)r(k)
+            coeff_i = eijk - eij*ek - eik*ej - ejk*ei + 2*ei*ej*ek
+            if np.abs(coeff_i)<1e-13:
+                continue
+            for si in set(H.sites).difference(set([si,sj])):
+                coeff_i *= local_evals[(si,)][(term[si.label],)]
+        
+            E3b += coeff_i*coeff
+    E3b = np.real_if_close(E3b) 
+    if verbose: print(" 3-body energy: %12.8f"%E3b) 
+
+    E = E1b + E2b + E3b
+    if verbose: print("  Total energy: %12.8f"%E) 
     return E
 
 def build_local_expvals(H: 'GeneralHamiltonian', rho: 'Marginals', oplib: Dict[Site, SiteOperators]) -> Dict[List[Site], Dict[str, float]]:

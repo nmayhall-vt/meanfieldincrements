@@ -209,7 +209,9 @@ class FactorizedMarginal(Marginal):
         # Create LocalTensor and perform partial trace
         local_op = LocalTensor(rho_full, self.sites, 'matrix')
         reduced_local = local_op.partial_trace(traced_sites)
-        
+        # print("a: ", reduced_local) 
+        # print(remaining_sites)
+        # print("aa:", FactorizedMarginal.from_density_matrix(reduced_local.tensor, remaining_sites))
         # Create new FactorizedMarginal from the reduced density matrix
         return FactorizedMarginal.from_density_matrix(reduced_local.tensor, remaining_sites)
     
@@ -244,13 +246,13 @@ class FactorizedMarginal(Marginal):
             FactorizedMarginal: New factorized marginal
         """
         # Handle tensor format input
-        if tensor_format == 'tensor' and rho.ndim == len(sites) * 2:
+        if rho.ndim != 2:
             site_dims = [site.dimension for site in sites]
             total_dim = np.prod(site_dims)
             rho_mat = rho.reshape(total_dim, total_dim)
         else:
             rho_mat = rho
-        
+
         
         # Eigendecomposition
         eigenvals, eigenvecs = np.linalg.eigh(rho_mat)
@@ -259,9 +261,11 @@ class FactorizedMarginal(Marginal):
         pos_mask = eigenvals > 1e-12
         pos_eigenvals = eigenvals[pos_mask]
         pos_eigenvecs = eigenvecs[:, pos_mask]
-        
+
         # Factor: A = U @ diag(√λ)
         sqrt_eigenvals = np.sqrt(pos_eigenvals)
+        # print(eigenvecs.shape)
+        # print(eigenvals.shape)
         factor = pos_eigenvecs @ np.diag(sqrt_eigenvals)
         
         # Create instance
@@ -275,7 +279,8 @@ class FactorizedMarginal(Marginal):
         # Convert to desired format
         if tensor_format == 'tensor':
             result.fold()
-        
+
+        # print(" in from_den: ",factor.shape) 
         return result
     
     @classmethod

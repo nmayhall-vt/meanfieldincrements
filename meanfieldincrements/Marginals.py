@@ -1,7 +1,7 @@
 from typing import Dict, Tuple, Union, List
 import numpy as np
-
-from meanfieldincrements import LocalTensor, Site
+import copy as cp
+from meanfieldincrements import FactorizedMarginal, LocalTensor, Site
 from .Marginal import Marginal
 from itertools import combinations
 from collections import OrderedDict
@@ -261,38 +261,13 @@ class Marginals:
             for site_combination in combinations(sites, n):
                 total_dim = np.prod([site.dimension for site in site_combination])
                 
-                # Choose rank (default to full rank for maximally mixed)
-                actual_rank = rank if rank is not None else total_dim
-                actual_rank = min(actual_rank, total_dim)  # Can't exceed dimension
-                
-                # For maximally mixed state, we want A such that A*A† = I/dim
-                # One choice: A = (1/√dim) * [I, 0] where I is dim×rank identity
-                scale_factor = 1.0 / np.sqrt(total_dim)
-                
-                if actual_rank == total_dim:
-                    # Full rank: A = (1/√dim) * I
-                    factor_A = scale_factor * np.eye(total_dim, dtype=complex)
-                else:
-                    # Reduced rank: A = (1/√dim) * [I_rank; 0]
-                    factor_A = np.zeros((total_dim, actual_rank), dtype=complex)
-                    factor_A[:actual_rank, :actual_rank] = scale_factor * np.eye(actual_rank)
-                
-                # Create site labels tuple (sorted for consistency)
                 site_labels = tuple(sorted([site.label for site in site_combination]))
-                
-                # Create FactorizedMarginal and store it
-                factorized_marginal = FactorizedMarginal(factor_A, list(site_combination), tensor_format='matrix')
-                self[site_labels] = factorized_marginal
-                
-                print(f"    Added factorized marginal {site_labels}: "
-                    f"dim={total_dim}, rank={actual_rank}, trace={factorized_marginal.trace():.6f}")
-        
-        total_marginals = len(self.marginals)
-        print(f"  Total factorized marginals created: {total_marginals}")
+
+                self.marginals[site_labels] = FactorizedMarginal(np.eye(total_dim),site_combination, tensor_format='matrix')
         
         return self
 
-    def compute_constraint_violations(self):
+    def compute_2b_violations(self):
         violations = []
         self.fold()
         for sites in self.keys():
@@ -310,17 +285,67 @@ class Marginals:
                 trace_j = mij.partial_trace([sj])
                 violation = np.linalg.norm(trace_j.tensor - mi.tensor)
                 violations.append(violation)
+
+        return np.real_if_close(violations)
+    
+
+    def compute_3b_violations(self):
+        violations = []
+        self.fold()
+        for sites in self.keys():
+            if len(sites) == 3:
+                si,sj,sk = sites 
+
+                mij  = self.marginals[(si, sj)]
+                mik  = self.marginals[(si, sk)]
+                mjk  = self.marginals[(sj, sk)]
+                mijk = self.marginals[(si, sj, sk)]
+
+                trace = mijk.partial_trace([si,]).fold()
+                # print(mijk)
+                # print(trace, trace._tensor_format)
+                # print(mjk)
+                # exit()
+                violation = np.linalg.norm(trace.tensor - mjk.tensor)
+                # print("a: ", violation)
+                violations.append(violation)
+
+                trace = mijk.partial_trace([sj]).fold()
+                violation = np.linalg.norm(trace.tensor - mik.tensor)
+                violations.append(violation)
+                # print("b: ", violation)
+                
+                trace = mijk.partial_trace([sk]).fold()
+                violation = np.linalg.norm(trace.tensor - mij.tensor)
+                violations.append(violation)
+                # print("c: ", violation)
+
         return np.real_if_close(violations)
     
     def print_cumulants(self):
+        print(f"Cumulants ({len(self.marginals)} cumulants):")
         print(" 2-Body Cumulants: ")
-        self.unfold()
+        self.fold()
         for sites in self.keys():
             if len(sites) == 2:
                 si,sj = sites
-                cumul = self[sites].tensor - np.kron(self[(si,)].tensor, self[(sj,)].tensor)
-                print("    %2i,%2i : Norm(lambda) = %12.8f" %(si,sj,np.linalg.norm(cumul)))
-                
+                cumul =  cp.deepcopy(self[sites].tensor)
+                cumul -= np.einsum("aA,bB->abAB", self[(si,)].tensor, self[(sj,)].tensor, optimize=True)
+                tr = np.real_if_close(np.einsum("abab->",cumul)) 
+                print("    %2i,%2i : Norm = %12.8f : tr = %12.8f" %(si,sj,np.linalg.norm(cumul),tr))
+        print(" 3-Body Cumulants: ")
+        for sites in self.keys():
+            if len(sites) == 3:
+                # l(ijk) = r(ijk) - l(ij)r(k) - l(ik)r(j) - l(jk)r(i) - r(i)r(j)r(k) 
+                si,sj,sk = sites
+                cumul =  cp.deepcopy(self[sites].tensor)
+                cumul -= np.einsum("abAB,cC->abcABC", self[si,sj].tensor, self[(sk,)].tensor, optimize=True) 
+                cumul -= np.einsum("acAC,bB->abcABC", self[si,sk].tensor, self[(sj,)].tensor, optimize=True) 
+                cumul -= np.einsum("bcBC,aA->abcABC", self[sj,sk].tensor, self[(si,)].tensor, optimize=True) 
+                cumul += 2*np.einsum("aA,bB,cC->abcABC", self[(si,)].tensor, self[(sj,)].tensor, self[(sk,)].tensor, optimize=True) 
+                tr = np.real_if_close(np.einsum("abcabc->",cumul)) 
+                print(" %2i,%2i,%2i : Norm = %12.8f : tr = %12.8f" %(si,sj,sk,np.linalg.norm(cumul),tr))
+        
     def build_full_matrix(self):
         N = 0
         for margs in self.keys():
@@ -331,7 +356,13 @@ class Marginals:
         letters += letters.upper()
         print(letters)
         raise NotImplementedError("Not finished")
-
+    
+    def convert_to_FactorizedMarginals(self):
+        # Why does this function not work?
+        for term in self.marginals.keys():
+            self.marginals[term] = FactorizedMarginal.from_Marginal(self[term])
+        return self
+    
 def build_Marginals_from_LocalTensor(lt:'LocalTensor', n_body:int=2):
     """
     Decompose a dense density matrix, provided as a `LocalTensor`, into a Marginals
