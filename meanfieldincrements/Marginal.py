@@ -98,7 +98,10 @@ class Marginal(LocalTensor):
             return np.einsum('abcABC,Aa,Bb,Cc->', self.tensor, O1, O2, O3, optimize=True)
         else:
             raise NotImplementedError("Contracting more than 3 sites is not implemented yet.")
-    
+
+    def to_Marginal(self): 
+        return self
+
     @classmethod
     def from_LocalTensor(cls, local_tensor: 'LocalTensor') -> 'Marginal':
         """

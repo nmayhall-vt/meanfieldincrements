@@ -214,7 +214,10 @@ class FactorizedMarginal(Marginal):
         # print("aa:", FactorizedMarginal.from_density_matrix(reduced_local.tensor, remaining_sites))
         # Create new FactorizedMarginal from the reduced density matrix
         return FactorizedMarginal.from_density_matrix(reduced_local.tensor, remaining_sites)
-    
+
+    def to_Marginal(self):
+        return Marginal(self.tensor, self.sites, tensor_format=self._tensor_format)
+
     @classmethod
     def from_Marginal(cls, rho: 'Marginal') -> 'FactorizedMarginal':
         """
@@ -344,6 +347,7 @@ class FactorizedMarginal(Marginal):
         Returns:
             float: The expectation value
         """
+        return self.to_Marginal().fold().contract_operators(opstr, oplib)
         nsites = self.nsites
         assert len(opstr) == nsites, "Operator string length must match number of sites"
 

@@ -95,7 +95,14 @@ def build_local_expvals(H: 'GeneralHamiltonian', rho: 'Marginals', oplib: Dict[S
             if opstr in local_expvals[(si,sj)].keys():
                 continue
             local_expvals[si,sj][opstr] = rho[si.label, sj.label].contract_operators(opstr, oplib)
-
+            # mij = rho[si.label, sj.label].to_Marginal()
+            # mi  = mij.partial_trace([sj.label, ]).fold()
+            # mj  = mij.partial_trace([si.label, ]).fold()
+            # tmp = np.einsum("pP,qQ->pqPQ", mi.tensor, mj.tensor)
+            # eij = mij.contract_operators(opstr, oplib)
+            # ei  = mi.contract_operators(opstr, oplib)
+            # ej  = mj.contract_operators(opstr, oplib)
+            # local_expvals[si, sj][opstr] = eij - ei - ej
     return local_expvals
 
 
